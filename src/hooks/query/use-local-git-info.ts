@@ -35,7 +35,7 @@ type RunCommand = (
 //   2. If neither is set, search for exactly one nested git repo up to 4
 //      levels deep and repeat the probe there.
 // Output: two lines — <remote-url>\n<branch> — either may be empty.
-const GIT_INFO_COMMAND = [
+export const GIT_INFO_COMMAND = [
   "r=$(git remote get-url origin 2>/dev/null)",
   "b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)",
   'if [ -z "$r$b" ]; then',
@@ -49,18 +49,16 @@ const GIT_INFO_COMMAND = [
   'printf \'%s\\n%s\' "$r" "$b"',
 ].join("\n");
 
-async function probeGitInfo(
-  run: RunCommand,
-  directory: string,
-): Promise<LocalGitInfo> {
-  const result = await run(GIT_INFO_COMMAND, directory, 10);
-  if (result.exit_code !== 0) return EMPTY_LOCAL_GIT_INFO;
+// @spec PRJ-006 — Shared git-info parsing for the local probe and project git info
+export function parseGitInfoOutput(
+  stdout: string,
+  exitCode: number,
+): LocalGitInfo {
+  if (exitCode !== 0) return EMPTY_LOCAL_GIT_INFO;
 
-  const nl = result.stdout.indexOf("\n");
-  const remoteUrl = (
-    nl >= 0 ? result.stdout.slice(0, nl) : result.stdout
-  ).trim();
-  const rawBranch = (nl >= 0 ? result.stdout.slice(nl + 1) : "").trim();
+  const nl = stdout.indexOf("\n");
+  const remoteUrl = (nl >= 0 ? stdout.slice(0, nl) : stdout).trim();
+  const rawBranch = (nl >= 0 ? stdout.slice(nl + 1) : "").trim();
   const branch = rawBranch && rawBranch !== "HEAD" ? rawBranch : null;
 
   if (!remoteUrl && !branch) return EMPTY_LOCAL_GIT_INFO;
@@ -72,6 +70,14 @@ async function probeGitInfo(
     remoteUrl: remoteUrl || null,
     branch,
   };
+}
+
+async function probeGitInfo(
+  run: RunCommand,
+  directory: string,
+): Promise<LocalGitInfo> {
+  const result = await run(GIT_INFO_COMMAND, directory, 10);
+  return parseGitInfoOutput(result.stdout, result.exit_code);
 }
 
 /**
@@ -133,7 +139,7 @@ export const useLocalGitInfo = () => {
 
   // runCommandRef is a ref (always stable); the linter cannot infer this so
   // we disable the exhaustive-deps check here.
-  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+
   return useQuery<LocalGitInfo>({
     queryKey: [
       "local-git-info",

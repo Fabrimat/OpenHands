@@ -300,6 +300,21 @@ class AutomationService {
     return AutomationService.listAutomations({ limit, offset });
   }
 
+  // @spec PRJ-006 — Project detail aggregates across servers
+  static async listAutomationsForBackend(
+    backend: Backend,
+    limit = 100,
+  ): Promise<AutomationsResponse> {
+    const { data } = await localAutomationAxios.get<AutomationsResponse>(
+      `${AUTOMATION_BASE_PATH}${getAutomationEndpoint("list")}`,
+      {
+        ...(await buildPinnedLocalConfig(backend)),
+        params: { limit, offset: 0 },
+      },
+    );
+    return data;
+  }
+
   static async getAutomation(id: string): Promise<Automation> {
     const active = getActiveBackend().backend;
     const path = `${AUTOMATION_BASE_PATH}${getAutomationIdEndpoint("detail", id)}`;
