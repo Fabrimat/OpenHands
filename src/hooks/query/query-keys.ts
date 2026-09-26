@@ -45,6 +45,19 @@ export const LOCAL_WORKSPACES_QUERY_KEYS = {
   all: ["local-workspaces"] as const,
 } as const;
 
+// @spec PRJ-001 — Projects persist on the primary server
+export const PROJECTS_QUERY_KEYS = {
+  all: ["projects"] as const,
+  list: (primaryId: string, revision: number) =>
+    ["projects", "list", primaryId, revision] as const,
+  conversations: (backendId: string, revision: number) =>
+    ["projects", "conversations", backendId, revision] as const,
+  automations: (backendId: string, revision: number) =>
+    ["projects", "automations", backendId, revision] as const,
+  gitInfo: (backendId: string, path: string) =>
+    ["projects", "git-info", backendId, path] as const,
+} as const;
+
 export const PLUGINS_QUERY_KEYS = {
   /** Dynamic marketplace catalog (used by `use-plugins-marketplace`). */
   marketplace: ["plugins-marketplace"] as const,
