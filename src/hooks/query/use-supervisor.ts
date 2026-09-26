@@ -165,82 +165,95 @@ async function disableRenamedAutomations(
   );
 }
 
-// @spec PRJ-204, PRJ-208 — Sync isolates per-server failures
+// Extracted so `useSupervisorSync` can run it against freshly-fetched
+// settings/projects (see below) instead of the render-time query cache.
+async function runSupervisorSync(
+  targets: ServerTarget[],
+): Promise<SupervisorRow[]> {
+  const rows: SupervisorRow[] = [];
+  for (const target of targets) {
+    if (!target.backend) {
+      rows.push({ target, state: "unregistered", action: null, error: null });
+      continue;
+    }
+    let listed: Automation[];
+    try {
+      listed = (
+        await AutomationService.listAutomationsForBackend(target.backend)
+      ).automations;
+    } catch (e) {
+      rows.push({
+        target,
+        state: "offline",
+        action: null,
+        error: errorMessage(e),
+      });
+
+      continue;
+    }
+    const existing = findByName(listed, nameOf(target));
+    const action = diffAutomation(existing, target.desired);
+    try {
+      if (action === "create") {
+        await AutomationService.createAutomationForBackend(
+          target.backend,
+          target.desired!,
+        );
+      }
+      if (action === "update") {
+        await AutomationService.updateAutomationForBackend(
+          target.backend,
+          existing!.id,
+          target.desired!,
+        );
+      }
+      if (action === "disable") {
+        await AutomationService.updateAutomationForBackend(
+          target.backend,
+          existing!.id,
+          {
+            enabled: false,
+          },
+        );
+      }
+      if (target.key !== SUMMARY_TARGET_KEY) {
+        await disableRenamedAutomations(target.backend, listed, nameOf(target));
+      }
+      rows.push({
+        target,
+        state: action === "conflict" ? "conflict" : "synced",
+        action,
+        error: null,
+      });
+    } catch (e) {
+      rows.push({ target, state: "error", action, error: errorMessage(e) });
+    }
+  }
+  return rows;
+}
+
+// @spec PRJ-204, PRJ-206, PRJ-208 — Sync isolates per-server failures and
+// runs against freshly-fetched settings/projects (not the render-time query
+// cache), so a sync triggered right after a project or supervisor-settings
+// save reflects that save instead of racing React Query's cache update.
 export function useSupervisorSync() {
-  const targets = useTargets();
+  const { backends } = useActiveBackendContext();
+  const primary = usePrimaryBackend();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (): Promise<SupervisorRow[]> => {
-      const rows: SupervisorRow[] = [];
-      for (const target of targets) {
-        if (!target.backend) {
-          rows.push({
-            target,
-            state: "unregistered",
-            action: null,
-            error: null,
-          });
-
-          continue;
-        }
-        let listed: Automation[];
-        try {
-          listed = (
-            await AutomationService.listAutomationsForBackend(target.backend)
-          ).automations;
-        } catch (e) {
-          rows.push({
-            target,
-            state: "offline",
-            action: null,
-            error: errorMessage(e),
-          });
-
-          continue;
-        }
-        const existing = findByName(listed, nameOf(target));
-        const action = diffAutomation(existing, target.desired);
-        try {
-          if (action === "create") {
-            await AutomationService.createAutomationForBackend(
-              target.backend,
-              target.desired!,
-            );
-          }
-          if (action === "update") {
-            await AutomationService.updateAutomationForBackend(
-              target.backend,
-              existing!.id,
-              target.desired!,
-            );
-          }
-          if (action === "disable") {
-            await AutomationService.updateAutomationForBackend(
-              target.backend,
-              existing!.id,
-              {
-                enabled: false,
-              },
-            );
-          }
-          if (target.key !== SUMMARY_TARGET_KEY) {
-            await disableRenamedAutomations(
-              target.backend,
-              listed,
-              nameOf(target),
-            );
-          }
-          rows.push({
-            target,
-            state: action === "conflict" ? "conflict" : "synced",
-            action,
-            error: null,
-          });
-        } catch (e) {
-          rows.push({ target, state: "error", action, error: errorMessage(e) });
-        }
-      }
-      return rows;
+      if (!primary) return [];
+      const [settings, projects] = await Promise.all([
+        ProjectsService.getSupervisorSettings(primary),
+        ProjectsService.getProjects(primary),
+      ]);
+      const targets = buildSupervisorTargets(
+        settings,
+        projects,
+        backends,
+        primary,
+      );
+      return runSupervisorSync(targets);
     },
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: SUPERVISOR_QUERY_KEYS.all }),

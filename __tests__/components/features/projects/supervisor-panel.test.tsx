@@ -14,6 +14,8 @@ import { ProjectsService } from "#/api/projects-service/projects-service.api";
 import AutomationService from "#/api/automation-service/automation-service.api";
 import { SupervisorPanel } from "#/components/features/projects/supervisor-panel";
 import { I18nKey } from "#/i18n/declaration";
+import type { Project } from "#/types/project";
+import type { SupervisorSettings } from "#/types/supervisor";
 
 const pc1 = {
   id: "pc1",
@@ -138,5 +140,67 @@ describe("SupervisorPanel", () => {
     expect(
       screen.queryByText(I18nKey.SUPERVISOR$SUMMARY_TOO_EARLY),
     ).not.toBeInTheDocument();
+  });
+
+  // @spec PRJ-206 — Auto re-sync uses freshly-saved settings, not the
+  // pre-save render-time snapshot, so a renamed label never creates a stale
+  // `Supervisore — <old label>` automation.
+  it("creates the automation under the new label after renaming and saving", async () => {
+    const projects: Project[] = [
+      {
+        id: "1",
+        name: "App",
+        repo_url: "github.com/fab/app",
+        locations: [{ host: "http://pc1:8000", path: "/srv/app" }],
+      },
+    ];
+    vi.spyOn(ProjectsService, "getProjects").mockResolvedValue(projects);
+
+    // Stateful settings store (mirroring a real backend) so the sync's own
+    // fresh re-fetch, triggered right after Save, observes the rename.
+    let stored: SupervisorSettings = {
+      enabled: true,
+      timezone: "Europe/Rome",
+      run_time: "08:00",
+      summary_time: "09:00",
+      timeout_seconds: 1800,
+      summary_clickup_list_id: "",
+      servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
+    };
+    vi.spyOn(ProjectsService, "getSupervisorSettings").mockImplementation(
+      async () => stored,
+    );
+    vi.spyOn(ProjectsService, "saveSupervisorSettings").mockImplementation(
+      async (_backend, next) => {
+        stored = next;
+      },
+    );
+    vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({
+      automations: [],
+      total: 0,
+    });
+    // `vi.spyOn` re-wraps an already-mocked method in place, so an earlier
+    // test's call history on this shared spy would otherwise leak in here.
+    const create = vi
+      .spyOn(AutomationService, "createAutomationForBackend")
+      .mockReset()
+      .mockResolvedValue({} as never);
+    const user = userEvent.setup();
+    renderPanel();
+
+    const labelInput = await screen.findByTestId("supervisor-row-pc1-label");
+    fireEvent.change(labelInput, { target: { value: "pc1-renamed" } });
+    await user.click(screen.getByTestId("supervisor-save"));
+
+    await vi.waitFor(() =>
+      expect(create).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ name: "Supervisore — pc1-renamed" }),
+      ),
+    );
+    expect(create).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ name: "Supervisore — pc1" }),
+    );
   });
 });

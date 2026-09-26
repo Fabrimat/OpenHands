@@ -28,6 +28,7 @@ import {
   SUPERVISOR_STAGGER_MINUTES,
   SUMMARY_TARGET_KEY,
 } from "#/utils/supervisor-sync";
+import { cn } from "#/utils/utils";
 
 const STATE_KEYS: Record<RowState, I18nKey> = {
   synced: I18nKey.SUPERVISOR$STATE_SYNCED,
@@ -89,11 +90,17 @@ export function SupervisorPanel() {
     (b) => !local.servers.some((s) => hostsMatch(s.host, b.host)),
   );
 
-  // Review fix — labels must be non-empty and unique.
+  // Review fix — labels must be non-empty and unique. Track per-row so the
+  // offending input(s) can show an inline error instead of a silently
+  // disabled Save button.
   const trimmedLabels = local.servers.map((s) => s.label.trim().toLowerCase());
-  const labelsValid =
-    local.servers.every((s) => s.label.trim() !== "") &&
-    new Set(trimmedLabels).size === trimmedLabels.length;
+  const labelCounts = trimmedLabels.reduce<Record<string, number>>(
+    (acc, label) => ({ ...acc, [label]: (acc[label] ?? 0) + 1 }),
+    {},
+  );
+  const isLabelInvalid = (index: number) =>
+    trimmedLabels[index] === "" || labelCounts[trimmedLabels[index]] > 1;
+  const labelsValid = trimmedLabels.every((_, i) => !isLabelInvalid(i));
 
   const runTimeValid = TIME_PATTERN.test(local.run_time);
   const summaryTimeValid = TIME_PATTERN.test(local.summary_time);
@@ -255,6 +262,8 @@ export function SupervisorPanel() {
                 ? (health[backend.id]?.isConnected ?? null)
                 : null;
               const rowTestId = `${TEST_ID_ROOT}-row-${server.label}`;
+              const labelInvalid = isLabelInvalid(i);
+              const labelErrorId = `${rowTestId}-label-error`;
               return (
                 <li
                   key={server.host}
@@ -262,14 +271,33 @@ export function SupervisorPanel() {
                   className="flex flex-wrap items-center gap-2 text-xs"
                 >
                   <BackendStatusDot isConnected={connected} />
-                  <input
-                    aria-label={t(I18nKey.SUPERVISOR$LABEL)}
-                    data-testid={`${rowTestId}-label`}
-                    value={server.label}
-                    disabled={primaryUnreachable}
-                    onChange={(e) => updateServer(i, { label: e.target.value })}
-                    className={formControlSettingsFieldClassName}
-                  />
+                  <div className="flex flex-col gap-0.5">
+                    <input
+                      aria-label={t(I18nKey.SUPERVISOR$LABEL)}
+                      aria-invalid={labelInvalid}
+                      aria-describedby={labelInvalid ? labelErrorId : undefined}
+                      data-testid={`${rowTestId}-label`}
+                      value={server.label}
+                      disabled={primaryUnreachable}
+                      onChange={(e) =>
+                        updateServer(i, { label: e.target.value })
+                      }
+                      className={cn(
+                        formControlSettingsFieldClassName,
+                        labelInvalid && "border-red-500",
+                      )}
+                    />
+                    {labelInvalid ? (
+                      <p
+                        id={labelErrorId}
+                        role="alert"
+                        data-testid={labelErrorId}
+                        className="text-xs text-red-400"
+                      >
+                        {t(I18nKey.SUPERVISOR$LABEL_INVALID)}
+                      </p>
+                    ) : null}
+                  </div>
                   <SettingsSwitch
                     testId={`${rowTestId}-enabled`}
                     isToggled={server.enabled}

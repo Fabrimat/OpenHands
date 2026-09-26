@@ -22,10 +22,11 @@ import {
   useSupervisorSync,
 } from "#/hooks/query/use-supervisor";
 
-// The mutation reads settings/projects through closures captured at render
-// time; wait for both to resolve (as a real "Sync now" button would stay
-// disabled until then) before invoking it, instead of racing the mutation
-// against the first render's still-empty target list.
+// The mutation re-fetches settings/projects itself, so this wait isn't
+// strictly required for correctness — but it mirrors how a real "Sync now"
+// button behaves (only enabled once both queries have resolved) and keeps
+// the harness from invoking the mutation before the backend registry/spies
+// below have settled.
 function useSyncHarness() {
   const settingsQuery = useSupervisorSettings();
   const projectsQuery = useProjects();

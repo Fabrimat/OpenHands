@@ -42363,6 +42363,23 @@
     "zh-CN": "标签",
     "zh-TW": "標籤"
   },
+  "SUPERVISOR$LABEL_INVALID": {
+    "ar": "يجب ألا تكون التسميات فارغة ويجب أن تكون فريدة.",
+    "ca": "Les etiquetes han de ser no buides i úniques.",
+    "de": "Bezeichnungen dürfen nicht leer sein und müssen eindeutig sein.",
+    "en": "Labels must be non-empty and unique.",
+    "es": "Las etiquetas deben ser no vacías y únicas.",
+    "fr": "Les libellés ne doivent pas être vides et doivent être uniques.",
+    "it": "Le etichette devono essere non vuote e uniche.",
+    "ja": "ラベルは空にできず、一意である必要があります。",
+    "ko-KR": "레이블은 비어 있지 않고 고유해야 합니다.",
+    "no": "Etiketter må ikke være tomme og må være unike.",
+    "pt": "Os rótulos não podem estar vazios e devem ser exclusivos.",
+    "tr": "Etiketler boş olmamalı ve benzersiz olmalıdır.",
+    "uk": "Мітки не повинні бути порожніми і мають бути унікальними.",
+    "zh-CN": "标签不能为空且必须唯一。",
+    "zh-TW": "標籤不能為空且必須唯一。"
+  },
   "SUPERVISOR$SYNC_NOW": {
     "ar": "مزامنة الآن",
     "ca": "Sincronitza ara",
