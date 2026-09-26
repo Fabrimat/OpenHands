@@ -1,0 +1,58 @@
+// @spec PRJ-201 — Supervisor settings persist on the primary server
+export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export interface SupervisorServer {
+  host: string;
+  label: string;
+  enabled: boolean;
+}
+
+export interface SupervisorSettings {
+  enabled: boolean;
+  timezone: string;
+  run_time: string;
+  summary_time: string;
+  timeout_seconds: number;
+  summary_clickup_list_id: string;
+  servers: SupervisorServer[];
+}
+
+export const DEFAULT_SUPERVISOR_SETTINGS: SupervisorSettings = {
+  enabled: false,
+  timezone: "Europe/Rome",
+  run_time: "08:00",
+  summary_time: "09:00",
+  timeout_seconds: 1800,
+  summary_clickup_list_id: "",
+  servers: [],
+};
+
+function isValidServer(v: unknown): v is SupervisorServer {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as Partial<SupervisorServer>;
+  return (
+    typeof s.host === "string" &&
+    typeof s.label === "string" &&
+    s.label.trim() !== "" &&
+    typeof s.enabled === "boolean"
+  );
+}
+
+export function isValidSupervisorSettings(v: unknown): v is SupervisorSettings {
+  if (typeof v !== "object" || v === null) return false;
+  const s = v as Partial<SupervisorSettings>;
+  return (
+    typeof s.enabled === "boolean" &&
+    typeof s.timezone === "string" &&
+    typeof s.run_time === "string" &&
+    TIME_PATTERN.test(s.run_time) &&
+    typeof s.summary_time === "string" &&
+    TIME_PATTERN.test(s.summary_time) &&
+    typeof s.timeout_seconds === "number" &&
+    Number.isInteger(s.timeout_seconds) &&
+    s.timeout_seconds > 0 &&
+    typeof s.summary_clickup_list_id === "string" &&
+    Array.isArray(s.servers) &&
+    s.servers.every(isValidServer)
+  );
+}

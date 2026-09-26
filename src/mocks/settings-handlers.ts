@@ -1077,6 +1077,7 @@ export const SETTINGS_HANDLERS = [
       misc_settings_diff?: {
         app_preferences?: Record<string, unknown>;
         projects?: unknown[];
+        supervisor?: Record<string, unknown>;
       };
     } | null;
 
@@ -1159,6 +1160,18 @@ export const SETTINGS_HANDLERS = [
         nextMisc.projects = (
           body.misc_settings_diff as { projects: unknown[] }
         ).projects;
+      }
+      // @spec PRJ-201 — Mock passthrough for supervisor settings
+      const supervisorDiff = (
+        body.misc_settings_diff as { supervisor?: Record<string, unknown> }
+      ).supervisor;
+      if (supervisorDiff && typeof supervisorDiff === "object") {
+        nextMisc.supervisor = {
+          ...((
+            existingMisc as { supervisor?: Record<string, unknown> } | undefined
+          )?.supervisor ?? {}),
+          ...supervisorDiff,
+        };
       }
       (nextSettings as Record<string, unknown>).misc_settings = nextMisc;
     }

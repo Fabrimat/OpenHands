@@ -456,3 +456,174 @@ describe("AutomationService git sync", () => {
     );
   });
 });
+
+describe("AutomationService.createAutomationForBackend", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("creates an automation on the specified backend without repos", async () => {
+    // @spec PRJ-205 — Automations created per backend (single POST, no import dance)
+    localAxios.post.mockResolvedValueOnce({ data: createdAutomation });
+
+    const desired = {
+      name: "Backend-specific automation",
+      prompt: "Run a task",
+      trigger: {
+        type: "cron" as const,
+        schedule: "0 10 * * *",
+        timezone: "UTC",
+      },
+      timeout: 300,
+      enabled: true,
+    };
+
+    await expect(
+      AutomationService.createAutomationForBackend(localBackend, desired),
+    ).resolves.toEqual(createdAutomation);
+
+    expect(localAxios.post).toHaveBeenCalledWith(
+      "/api/automation/v1/preset/prompt",
+      {
+        name: desired.name,
+        prompt: desired.prompt,
+        trigger: desired.trigger,
+        timeout: desired.timeout,
+        enabled: true,
+      },
+      {
+        baseURL: localBackend.host,
+        headers: expect.objectContaining({
+          "X-Session-API-Key": localBackend.apiKey,
+        }),
+      },
+    );
+  });
+
+  it("does not include repos in the create request", async () => {
+    localAxios.post.mockResolvedValueOnce({ data: createdAutomation });
+
+    const desired = {
+      name: "No repos automation",
+      prompt: "Run a task",
+      trigger: {
+        type: "cron" as const,
+        schedule: "0 10 * * *",
+        timezone: "UTC",
+      },
+      timeout: 300,
+      enabled: true,
+    };
+
+    await AutomationService.createAutomationForBackend(localBackend, desired);
+
+    const callArgs = localAxios.post.mock.calls[0];
+    const body = callArgs[1];
+    expect(body).not.toHaveProperty("repos");
+  });
+
+  it("uses the backend session key in the X-Session-API-Key header", async () => {
+    const customBackend = { ...localBackend, apiKey: "custom-session-key" };
+    localAxios.post.mockResolvedValueOnce({ data: createdAutomation });
+
+    const desired = {
+      name: "Custom backend automation",
+      prompt: "Run a task",
+      trigger: {
+        type: "cron" as const,
+        schedule: "0 10 * * *",
+        timezone: "UTC",
+      },
+      timeout: 300,
+      enabled: true,
+    };
+
+    await AutomationService.createAutomationForBackend(customBackend, desired);
+
+    expect(localAxios.post).toHaveBeenCalledWith(
+      "/api/automation/v1/preset/prompt",
+      expect.any(Object),
+      {
+        baseURL: customBackend.host,
+        headers: expect.objectContaining({
+          "X-Session-API-Key": "custom-session-key",
+        }),
+      },
+    );
+  });
+});
+
+describe("AutomationService.updateAutomationForBackend", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("patches an automation on the specified backend", async () => {
+    // @spec PRJ-205 — Automations created per backend (single POST, no import dance)
+    const updatedAutomation = {
+      ...createdAutomation,
+      name: "Updated automation",
+    };
+    localAxios.patch.mockResolvedValueOnce({ data: updatedAutomation });
+
+    const patch = {
+      name: "Updated automation",
+      enabled: false,
+    };
+
+    await expect(
+      AutomationService.updateAutomationForBackend(
+        localBackend,
+        createdAutomation.id,
+        patch,
+      ),
+    ).resolves.toEqual(updatedAutomation);
+
+    expect(localAxios.patch).toHaveBeenCalledWith(
+      `/api/automation/v1/${createdAutomation.id}`,
+      patch,
+      {
+        baseURL: localBackend.host,
+        headers: expect.objectContaining({
+          "X-Session-API-Key": localBackend.apiKey,
+        }),
+      },
+    );
+  });
+
+  it("uses the backend session key in the X-Session-API-Key header", async () => {
+    const customBackend = { ...localBackend, apiKey: "custom-session-key" };
+    const updatedAutomation = {
+      ...createdAutomation,
+      enabled: false,
+    };
+    localAxios.patch.mockResolvedValueOnce({ data: updatedAutomation });
+
+    const patch = { enabled: false };
+
+    await AutomationService.updateAutomationForBackend(
+      customBackend,
+      createdAutomation.id,
+      patch,
+    );
+
+    expect(localAxios.patch).toHaveBeenCalledWith(
+      `/api/automation/v1/${createdAutomation.id}`,
+      patch,
+      {
+        baseURL: customBackend.host,
+        headers: expect.objectContaining({
+          "X-Session-API-Key": "custom-session-key",
+        }),
+      },
+    );
+  });
+});
