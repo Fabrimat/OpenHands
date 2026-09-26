@@ -1,5 +1,12 @@
-// Placeholder for Task 8, which replaces this with the real project detail
-// page (conversation/automation aggregation across servers).
+import { useParams } from "react-router";
+import { ProjectDetail } from "#/components/features/projects/project-detail";
+import { settingsLikeMainScrollClassName } from "#/utils/settings-like-page-layout-classes";
+
 export default function ProjectDetailRoute() {
-  return null;
+  const { projectId } = useParams();
+  return (
+    <main className={settingsLikeMainScrollClassName}>
+      <ProjectDetail projectId={projectId ?? ""} />
+    </main>
+  );
 }
