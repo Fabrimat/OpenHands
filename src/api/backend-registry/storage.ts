@@ -39,7 +39,7 @@ function isValidBackend(value: unknown): value is Backend {
   );
 }
 
-function isLoopbackUrl(value: string): boolean {
+export function isLoopbackUrl(value: string): boolean {
   try {
     const { hostname } = new URL(value);
     return (
