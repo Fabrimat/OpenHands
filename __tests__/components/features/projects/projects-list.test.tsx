@@ -19,6 +19,19 @@ vi.mock("#/utils/custom-toast-handlers", () => ({
   displaySuccessToast: vi.fn(),
 }));
 
+// PRJ-004's auto-detect effect probes git info for the first location with a
+// path via RemoteWorkspace.executeCommand, which is a real websocket-backed
+// call. None of these hosts have a real agent-server behind them, so stub
+// the client to keep the test hermetic instead of letting it hit the
+// network and resolve/reject on its own schedule after the test moves on.
+vi.mock("@openhands/typescript-client/workspace/remote-workspace", () => ({
+  RemoteWorkspace: vi.fn().mockImplementation(function MockRemoteWorkspace() {
+    return {
+      executeCommand: vi.fn().mockResolvedValue({ stdout: "", exit_code: 1 }),
+    };
+  }),
+}));
+
 const primary = {
   id: "p",
   name: "vps1",
@@ -26,6 +39,14 @@ const primary = {
   apiKey: "k",
   kind: "local" as const,
   isPrimary: true,
+};
+
+const cloud = {
+  id: "c",
+  name: "Cloud",
+  host: "https://app.all-hands.dev",
+  apiKey: "ck",
+  kind: "cloud" as const,
 };
 
 function renderList() {
@@ -70,6 +91,24 @@ describe("ProjectsList", () => {
         locations: [{ host: "http://vps1:8000", path: "/srv/app" }],
       }),
     ]);
+  });
+
+  // @spec PRJ-003 — Project CRUD (default location host stays a local backend)
+  it("defaults a new location's server to the local primary when the active backend is Cloud", async () => {
+    setRegisteredBackends([cloud, primary]);
+    setActiveSelection({ backendId: "c" });
+    vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderList();
+
+    await user.click(await screen.findByTestId("projects-new"));
+
+    expect(screen.getByTestId("project-form-server-0")).toHaveValue(
+      primary.host,
+    );
+    expect(
+      screen.queryByTestId("project-form-browse-0"),
+    ).not.toBeInTheDocument();
   });
 
   // @spec PRJ-007 — Primary unreachable

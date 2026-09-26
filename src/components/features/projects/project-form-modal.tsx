@@ -13,6 +13,7 @@ import { ModalCloseButton } from "#/components/shared/modals/modal-close-button"
 import { BrandButton } from "#/components/features/settings/brand-button";
 import { SettingsInput } from "#/components/features/settings/settings-input";
 import { useProjectGitInfo } from "#/hooks/query/use-project-data";
+import { usePrimaryBackend } from "#/hooks/query/use-projects";
 import {
   formControlMultilineFieldClassName,
   formControlSettingsFieldClassName,
@@ -42,6 +43,14 @@ export function ProjectFormModal({
   const { t } = useTranslation("openhands");
   const { backends, active } = useActiveBackendContext();
   const locals = backends.filter((b) => b.kind === "local");
+  const primary = usePrimaryBackend();
+  // The active backend can be a Cloud backend, but locations only ever
+  // point at local servers (the select below only lists locals) — fall back
+  // to the primary local backend, then the first registered local, so a new
+  // location always defaults to a host that's actually selectable.
+  const defaultLocalBackend =
+    active.backend.kind === "local" ? active.backend : (primary ?? locals[0]);
+  const defaultLocalHost = normalizeHost(defaultLocalBackend?.host ?? "");
   const [name, setName] = React.useState(initial?.name ?? "");
   const [repoUrl, setRepoUrl] = React.useState(initial?.repo_url ?? "");
   const [clickupUrl, setClickupUrl] = React.useState(
@@ -49,9 +58,7 @@ export function ProjectFormModal({
   );
   const [notes, setNotes] = React.useState(initial?.notes ?? "");
   const [locations, setLocations] = React.useState<ProjectLocation[]>(
-    initial?.locations ?? [
-      { host: normalizeHost(active.backend.host), path: "" },
-    ],
+    initial?.locations ?? [{ host: defaultLocalHost, path: "" }],
   );
   const [browsingIndex, setBrowsingIndex] = React.useState<number | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -150,7 +157,9 @@ export function ProjectFormModal({
               {t(I18nKey.PROJECTS$LOCATIONS)}
             </legend>
             {locations.map((loc, i) => {
-              const isActiveServer = hostsMatch(loc.host, active.backend.host);
+              const isActiveServer =
+                active.backend.kind === "local" &&
+                hostsMatch(loc.host, active.backend.host);
               return (
                 <div key={i} className="flex items-center gap-2">
                   <select
@@ -197,7 +206,7 @@ export function ProjectFormModal({
               onClick={() =>
                 setLocations((prev) => [
                   ...prev,
-                  { host: normalizeHost(active.backend.host), path: "" },
+                  { host: defaultLocalHost, path: "" },
                 ])
               }
               testId={`${testIdRoot}-add-location`}
