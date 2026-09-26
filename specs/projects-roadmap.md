@@ -10,6 +10,7 @@ every project monitored.
 | 2 | Multi-server dashboard | Not designed |
 | 3 | Supervisor agent | Not designed |
 | 4 | Borg backups | Not designed |
+| 5 | Project file storage (S3-compatible, agent-facing) | Not designed |
 
 ## Phase 2: Multi-server dashboard
 
@@ -37,6 +38,18 @@ An agent that checks the state of all projects on a schedule and reports.
 - Backup support via BorgBackup for the servers.
 - Open questions: what is backed up (repo checkouts, `~/.openhands` state incl. settings/secrets/conversations, automation DB), where the Borg repository lives (one VPS vs. external), scheduling (automation vs. system cron), and restore UX.
 - Secrets in `~/.openhands` are encrypted with `OH_SECRET_KEY`; backups must keep `secret-key.txt` handling explicit (never store it next to the data it protects unencrypted).
+
+## Phase 5: Project file storage (S3-compatible)
+
+Per-project file storage beyond the git repo, used mainly by agents (specs, inputs, generated outputs, assets).
+
+- Backend: S3-compatible bucket (self-hosted MinIO on a VPS, or Backblaze B2 / Cloudflare R2), one prefix per project (e.g. `s3://projects/<project-id>/`).
+- Agent access: mount on each server with `rclone mount` (agents see a local folder such as `/mnt/projects/<name>`, no MCP needed), or give agents `rclone`/`aws s3` CLI access with scoped credentials.
+- Data model: optional `storage?: { provider: "s3"; bucket: string; prefix: string; mount_path?: string }` on `Project`; the mount path per server can live on `ProjectLocation`.
+- App: show the storage location and mount status per server in project detail; optionally list files later.
+- Credentials: per-project or per-server scoped keys stored as agent-server secrets, never in `misc_settings`.
+- Include the bucket in Borg backups (phase 4), or rely on provider versioning.
+- Open questions: MinIO self-hosted vs. managed provider; mount (rclone) vs. CLI-only access; how agents learn the path (e.g. injected into the conversation's system suffix, like `<RUNTIME_SERVICES>`).
 
 ## Remaining items / ideas
 
