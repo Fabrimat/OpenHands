@@ -110,6 +110,10 @@ describe("Dashboard", () => {
     expect(screen.getByText("App")).toBeInTheDocument();
     expect(screen.getByText(I18nKey.DASHBOARD$UNASSIGNED)).toBeInTheDocument();
     expect(screen.getByText("Rogue task")).toBeInTheDocument();
+    // Status is rendered through the translated label, not the raw
+    // "running" enum value from the backend.
+    expect(screen.getAllByText(I18nKey.COMMON$WORKING)).toHaveLength(2);
+    expect(screen.queryByText("running")).not.toBeInTheDocument();
   });
 
   // @spec PRJ-103 — Active filter

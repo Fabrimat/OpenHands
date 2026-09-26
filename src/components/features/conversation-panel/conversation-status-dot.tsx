@@ -21,9 +21,17 @@ interface ConversationStatusDotProps {
   showTooltip?: boolean;
 }
 
-type Visual = "check" | "working" | "active" | "paused" | "error" | "unknown";
+export type Visual =
+  | "check"
+  | "working"
+  | "active"
+  | "paused"
+  | "error"
+  | "unknown";
 
-const visualFor = (status: ExecutionStatus | null | undefined): Visual => {
+export const visualFor = (
+  status: ExecutionStatus | null | undefined,
+): Visual => {
   switch (status) {
     case ExecutionStatus.FINISHED:
       return "check";
@@ -42,7 +50,7 @@ const visualFor = (status: ExecutionStatus | null | undefined): Visual => {
   }
 };
 
-const labelKeyFor = (visual: Visual, isArchived?: boolean): string => {
+export const labelKeyFor = (visual: Visual, isArchived?: boolean): string => {
   if (isArchived) return "COMMON$ARCHIVED";
   switch (visual) {
     case "check":

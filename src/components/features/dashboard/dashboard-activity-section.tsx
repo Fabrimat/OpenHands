@@ -1,10 +1,15 @@
 import { useTranslation } from "react-i18next";
 import type { Backend } from "#/api/backend-registry/types";
 import { NavigationLink } from "#/components/shared/navigation-link";
+import {
+  labelKeyFor,
+  visualFor,
+} from "#/components/features/conversation-panel/conversation-status-dot";
 import { ToggleSwitch } from "#/ui/toggle-switch";
 import { useNavigation } from "#/context/navigation-context";
 import { useSwitchBackend } from "#/hooks/use-switch-backend";
 import { I18nKey } from "#/i18n/declaration";
+import type { ExecutionStatus } from "#/types/agent-server/core/base/common";
 import type { ActivityGroup } from "#/utils/group-activity-by-project";
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
 
@@ -12,6 +17,18 @@ interface DashboardActivitySectionProps {
   groups: ActivityGroup[];
   showAllRecent: boolean;
   onToggleShowAllRecent: () => void;
+}
+
+/** Neutral glyph for a null or unrecognized execution status. */
+const UNKNOWN_STATUS_GLYPH = "—";
+
+// @spec PRJ-102 — Activity grouped by project: translated status, not the raw enum
+function translatedStatus(
+  t: (key: string) => string,
+  executionStatus: string | null,
+): string {
+  const visual = visualFor(executionStatus as ExecutionStatus | null);
+  return visual === "unknown" ? UNKNOWN_STATUS_GLYPH : t(labelKeyFor(visual));
 }
 
 // @spec PRJ-102 — Activity grouped by project
@@ -88,7 +105,7 @@ export function DashboardActivitySection({
                   {c.title}
                 </button>
                 <span className="text-xs text-[var(--oh-muted)]">
-                  {c.execution_status ?? "—"}
+                  {translatedStatus(t, c.execution_status)}
                 </span>
                 <span className="text-xs text-[var(--oh-muted)]">
                   {c.backend.name}
