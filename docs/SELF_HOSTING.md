@@ -295,6 +295,10 @@ origin the frontend is served from, or that server will show as "Server
 unreachable" in the project view even though the two machines can otherwise
 reach each other.
 
+Register location hosts and the primary backend by each server's tailnet
+hostname (e.g. its Tailscale name), not `localhost` — a `localhost` host only
+resolves for the browser that registered it, so no other device can reach it.
+
 - **Agent server** — set `OH_ALLOW_CORS_ORIGINS` to a JSON array of allowed
   origins, e.g. `OH_ALLOW_CORS_ORIGINS=["http://pc1:8000"]`. It also accepts
   the indexed form used by other `OH_`-prefixed list settings —

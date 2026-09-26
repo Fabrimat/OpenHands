@@ -48,6 +48,9 @@ export const LOCAL_WORKSPACES_QUERY_KEYS = {
 // @spec PRJ-001 — Projects persist on the primary server
 export const PROJECTS_QUERY_KEYS = {
   all: ["projects"] as const,
+  // Prefix shared by every `list(...)` key, so a save can invalidate just the
+  // projects list without refetching every server's conversations/automations.
+  lists: () => ["projects", "list"] as const,
   list: (primaryId: string, revision: number) =>
     ["projects", "list", primaryId, revision] as const,
   conversations: (backendId: string, revision: number) =>

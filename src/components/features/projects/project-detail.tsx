@@ -10,7 +10,11 @@ import {
   useProjectAutomations,
   useProjectConversations,
 } from "#/hooks/query/use-project-data";
-import { useProjects, useSaveProjects } from "#/hooks/query/use-projects";
+import {
+  useProjects,
+  useSaveProjects,
+  usePrimaryBackend,
+} from "#/hooks/query/use-projects";
 import { useSwitchBackend } from "#/hooks/use-switch-backend";
 import { useTracking } from "#/hooks/use-tracking";
 import { I18nKey } from "#/i18n/declaration";
@@ -21,21 +25,38 @@ import { ProjectLocationRow } from "./project-location-row";
 
 export function ProjectDetail({ projectId }: { projectId: string }) {
   const { t } = useTranslation("openhands");
+  const primary = usePrimaryBackend();
   const projects = useProjects();
-  const project = projects.data?.find((p) => p.id === projectId);
 
+  // @spec PRJ-007 — Primary unreachable: same error + Retry as the list,
+  // and no edit/delete affordance while the server can't be reached.
+  if (projects.isError) {
+    return (
+      <div role="alert">
+        <p>
+          {t(I18nKey.PROJECTS$PRIMARY_UNREACHABLE, {
+            name: primary?.name ?? "",
+          })}
+        </p>
+        <BrandButton
+          type="button"
+          variant="secondary"
+          testId="projects-retry"
+          onClick={() => projects.refetch()}
+        >
+          {t(I18nKey.PROJECTS$RETRY)}
+        </BrandButton>
+      </div>
+    );
+  }
+
+  const project = projects.data?.find((p) => p.id === projectId);
   if (projects.isLoading) return null;
   if (!project) return <p>{t(I18nKey.PROJECTS$NOT_FOUND)}</p>;
-  return <ProjectDetailBody project={project} all={projects.data ?? []} />;
+  return <ProjectDetailBody project={project} />;
 }
 
-function ProjectDetailBody({
-  project,
-  all,
-}: {
-  project: Project;
-  all: Project[];
-}) {
+function ProjectDetailBody({ project }: { project: Project }) {
   const { t } = useTranslation("openhands");
   const { navigate } = useNavigation();
   const switchBackend = useSwitchBackend();
@@ -47,9 +68,9 @@ function ProjectDetailBody({
   const [editing, setEditing] = React.useState(false);
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
 
-  const persist = async (next: Project[]) => {
+  const persist = async (update: (current: Project[]) => Project[]) => {
     try {
-      await save.mutateAsync(next);
+      await save.mutateAsync(update);
       return true;
     } catch {
       displayErrorToast(t(I18nKey.PROJECTS$SAVE_FAILED));
@@ -176,7 +197,11 @@ function ProjectDetailBody({
               variant="danger"
               testId="project-delete-confirm"
               onClick={async () => {
-                if (await persist(all.filter((p) => p.id !== project.id))) {
+                if (
+                  await persist((current) =>
+                    current.filter((p) => p.id !== project.id),
+                  )
+                ) {
                   navigate("/projects");
                 }
               }}
@@ -266,7 +291,9 @@ function ProjectDetailBody({
           onClose={() => setEditing(false)}
           onSubmit={async (updated) => {
             if (
-              await persist(all.map((p) => (p.id === updated.id ? updated : p)))
+              await persist((current) =>
+                current.map((p) => (p.id === updated.id ? updated : p)),
+              )
             ) {
               setEditing(false);
             }
