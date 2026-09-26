@@ -11,6 +11,7 @@ import {
   setRegisteredBackends,
 } from "#/api/backend-registry/active-store";
 import { ProjectsService } from "#/api/projects-service/projects-service.api";
+import AutomationService from "#/api/automation-service/automation-service.api";
 import { ProjectsList } from "#/components/features/projects/projects-list";
 import { I18nKey } from "#/i18n/declaration";
 
@@ -66,6 +67,22 @@ describe("ProjectsList", () => {
     __resetActiveStoreForTests();
     setRegisteredBackends([primary]);
     setActiveSelection({ backendId: "p" });
+    // The panel is mounted above the list on every render; give it a
+    // deterministic, disabled-by-default response so unrelated tests don't
+    // hit a real network for supervisor settings/automations.
+    vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
+      enabled: false,
+      timezone: "Europe/Rome",
+      run_time: "08:00",
+      summary_time: "09:00",
+      timeout_seconds: 1800,
+      summary_clickup_list_id: "",
+      servers: [],
+    });
+    vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({
+      automations: [],
+      total: 0,
+    });
   });
 
   // @spec PRJ-003 — Project CRUD
@@ -176,5 +193,43 @@ describe("ProjectsList", () => {
       await screen.findByText(I18nKey.PROJECTS$CLICKUP_URL_INVALID),
     ).toBeInTheDocument();
     expect(save).not.toHaveBeenCalled();
+  });
+
+  // @spec PRJ-206 — Auto re-sync after a project save
+  it("re-syncs the supervisor after creating a project when enabled", async () => {
+    vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([]);
+    vi.spyOn(ProjectsService, "saveProjects").mockResolvedValue();
+    vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
+      enabled: true,
+      timezone: "Europe/Rome",
+      run_time: "08:00",
+      summary_time: "09:00",
+      timeout_seconds: 1800,
+      summary_clickup_list_id: "",
+      servers: [],
+    });
+    const listAutomations = vi
+      .spyOn(AutomationService, "listAutomationsForBackend")
+      .mockResolvedValue({ automations: [], total: 0 });
+    const user = userEvent.setup();
+    renderList();
+
+    // Let the panel's own initial row query settle before clearing call
+    // history, so the assertion below reflects the save-triggered re-sync
+    // and not the panel's mount-time probe.
+    await screen.findByTestId("supervisor-panel");
+    await vi.waitFor(() => expect(listAutomations).toHaveBeenCalled());
+    listAutomations.mockClear();
+
+    await user.click(await screen.findByTestId("projects-new"));
+    await user.type(screen.getByTestId("project-form-name"), "App");
+    await user.type(
+      screen.getByTestId("project-form-repo"),
+      "https://github.com/Fab/App.git",
+    );
+    await user.type(screen.getByTestId("project-form-path-0"), "/srv/app");
+    await user.click(screen.getByTestId("project-form-submit"));
+
+    await vi.waitFor(() => expect(listAutomations).toHaveBeenCalled());
   });
 });

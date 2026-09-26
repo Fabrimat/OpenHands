@@ -8,11 +8,16 @@ import {
   useProjects,
   useSaveProjects,
 } from "#/hooks/query/use-projects";
+import {
+  useSupervisorSettings,
+  useSupervisorSync,
+} from "#/hooks/query/use-supervisor";
 import { I18nKey } from "#/i18n/declaration";
 import type { Project } from "#/types/project";
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
 import { ProjectCard } from "./project-card";
 import { ProjectFormModal } from "./project-form-modal";
+import { SupervisorPanel } from "./supervisor-panel";
 
 // @spec PRJ-005 — Projects list
 export function ProjectsList() {
@@ -22,6 +27,8 @@ export function ProjectsList() {
   const primary = usePrimaryBackend();
   const projects = useProjects();
   const save = useSaveProjects();
+  const supervisorSettings = useSupervisorSettings();
+  const supervisorSync = useSupervisorSync();
   const [isCreating, setIsCreating] = React.useState(false);
 
   if (!primary) return <p>{t(I18nKey.PROJECTS$NO_PRIMARY)}</p>;
@@ -44,9 +51,11 @@ export function ProjectsList() {
   }
   if (!projects.data) return null;
 
+  // @spec PRJ-206 — Auto re-sync after a project save when supervisor is enabled
   const create = async (project: Project) => {
     try {
       await save.mutateAsync((current) => [...current, project]);
+      if (supervisorSettings.data?.enabled) supervisorSync.mutate();
       setIsCreating(false);
     } catch {
       displayErrorToast(t(I18nKey.PROJECTS$SAVE_FAILED));
@@ -55,6 +64,7 @@ export function ProjectsList() {
 
   return (
     <section className="flex flex-col gap-4">
+      <SupervisorPanel />
       <div className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-medium leading-6 text-foreground">
           {t(I18nKey.PROJECTS$TITLE)}

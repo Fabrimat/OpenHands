@@ -15,6 +15,10 @@ import {
   useSaveProjects,
   usePrimaryBackend,
 } from "#/hooks/query/use-projects";
+import {
+  useSupervisorSettings,
+  useSupervisorSync,
+} from "#/hooks/query/use-supervisor";
 import { useSwitchBackend } from "#/hooks/use-switch-backend";
 import { useTracking } from "#/hooks/use-tracking";
 import { I18nKey } from "#/i18n/declaration";
@@ -61,6 +65,8 @@ function ProjectDetailBody({ project }: { project: Project }) {
   const { navigate } = useNavigation();
   const switchBackend = useSwitchBackend();
   const save = useSaveProjects();
+  const supervisorSettings = useSupervisorSettings();
+  const supervisorSync = useSupervisorSync();
   const queryClient = useQueryClient();
   const { trackConversationCreated } = useTracking();
   const { locations, conversations } = useProjectConversations(project);
@@ -68,9 +74,11 @@ function ProjectDetailBody({ project }: { project: Project }) {
   const [editing, setEditing] = React.useState(false);
   const [confirmingDelete, setConfirmingDelete] = React.useState(false);
 
+  // @spec PRJ-206 — Auto re-sync after edits/deletes when supervisor is enabled
   const persist = async (update: (current: Project[]) => Project[]) => {
     try {
       await save.mutateAsync(update);
+      if (supervisorSettings.data?.enabled) supervisorSync.mutate();
       return true;
     } catch {
       displayErrorToast(t(I18nKey.PROJECTS$SAVE_FAILED));
