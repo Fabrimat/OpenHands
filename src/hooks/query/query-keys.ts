@@ -58,6 +58,15 @@ export const PROJECTS_QUERY_KEYS = {
     ["projects", "git-info", backendId, path] as const,
 } as const;
 
+// @spec PRJ-201 — Supervisor settings persist on the primary server
+export const SUPERVISOR_QUERY_KEYS = {
+  all: ["supervisor"] as const,
+  settings: (primaryId: string, revision: number) =>
+    ["supervisor", "settings", primaryId, revision] as const,
+  state: (backendId: string, revision: number) =>
+    ["supervisor", "state", backendId, revision] as const,
+} as const;
+
 export const PLUGINS_QUERY_KEYS = {
   /** Dynamic marketplace catalog (used by `use-plugins-marketplace`). */
   marketplace: ["plugins-marketplace"] as const,
