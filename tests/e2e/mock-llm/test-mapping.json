@@ -114,6 +114,19 @@
         "src/mocks/canvas-extensions-handlers.ts"
       ],
       "tests": ["canvas-extensions"]
+    },
+    {
+      "comment": "Projects: primary-backend storage and cross-server project views",
+      "sources": [
+        "src/components/features/projects/**",
+        "src/routes/project*.tsx",
+        "src/api/projects-service/**",
+        "src/hooks/query/use-projects.ts",
+        "src/hooks/query/use-project-data.ts",
+        "src/utils/project-matching.ts",
+        "src/types/project.ts"
+      ],
+      "tests": ["projects"]
     }
   ],
 

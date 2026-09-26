@@ -284,3 +284,35 @@ as an additional backend and switch between local and remote from the UI.
    - **Session API key** — the `LOCAL_BACKEND_API_KEY` you chose in step 3.
 2. Save. The new backend should show as "Connected". Pick it from the
    backend switcher to talk to the remote machine.
+
+### Multiple servers (Projects)
+
+Projects fan a single project's data out across every server it's registered
+on. To do that, the browser talks **directly** to each registered
+agent-server (e.g. over Tailscale, a VPN, or a LAN) instead of only the
+currently active backend. Each remote agent-server must therefore allow the
+origin the frontend is served from, or that server will show as "Server
+unreachable" in the project view even though the two machines can otherwise
+reach each other.
+
+- **Agent server** — set `OH_ALLOW_CORS_ORIGINS` to a JSON array of allowed
+  origins, e.g. `OH_ALLOW_CORS_ORIGINS=["http://pc1:8000"]`. It also accepts
+  the indexed form used by other `OH_`-prefixed list settings —
+  `OH_ALLOW_CORS_ORIGINS_0=http://pc1:8000`,
+  `OH_ALLOW_CORS_ORIGINS_1=http://pc2:8000`, etc. — one origin per variable.
+  `localhost` / `127.0.0.1` and `DOCKER_HOST_ADDR` are always allowed; every
+  other origin, including a Tailscale hostname like `http://pc1:8000`, must
+  be added explicitly. `OH_ALLOW_CORS_ORIGIN_REGEX` accepts a regular
+  expression instead, for matching a set of origins by pattern. (These map to
+  `Config.allow_cors_origins` / `allow_cors_origin_regex` in the
+  `openhands-agent-server` package.)
+- **Automation backend** — set `AUTOMATION_CORS_ORIGINS` to a comma-separated
+  list of allowed origins (the same variable `scripts/dev-with-automation.mjs`
+  sets for local dev), e.g.
+  `AUTOMATION_CORS_ORIGINS=http://pc1:8000,http://pc2:8000`.
+
+Example: if your frontend is served from `http://pc1:8000` and you register a
+second machine, `pc2`, as another backend, `pc2`'s agent-server needs
+`OH_ALLOW_CORS_ORIGINS=["http://pc1:8000"]` (and `AUTOMATION_CORS_ORIGINS`
+including `http://pc1:8000` if `pc2` also runs the automation backend) so the
+browser on `pc1` is allowed to read `pc2`'s project data.
