@@ -1,5 +1,6 @@
 import { beforeEach, describe, it, expect, vi } from "vitest";
 import type { Backend } from "#/api/backend-registry/types";
+import { DEFAULT_SUPERVISOR_SETTINGS } from "#/types/supervisor";
 
 const getSettings = vi.hoisted(() => vi.fn());
 const updateSettings = vi.hoisted(() => vi.fn());
@@ -52,6 +53,29 @@ describe("ProjectsService", () => {
     await ProjectsService.saveProjects(primary, [project]);
     expect(updateSettings).toHaveBeenCalledWith({
       misc_settings_diff: { projects: [project] },
+    });
+  });
+});
+
+// @spec PRJ-201 — Supervisor settings persist on the primary server
+describe("ProjectsService supervisor settings", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("falls back to disabled defaults when stored settings are invalid", async () => {
+    getSettings.mockResolvedValue({
+      misc_settings: { supervisor: { enabled: true, run_time: "25:00" } },
+    });
+    expect(await ProjectsService.getSupervisorSettings(primary)).toEqual(
+      DEFAULT_SUPERVISOR_SETTINGS,
+    );
+  });
+
+  it("saves the whole object through misc_settings_diff", async () => {
+    updateSettings.mockResolvedValue({});
+    const settings = { ...DEFAULT_SUPERVISOR_SETTINGS, enabled: true };
+    await ProjectsService.saveSupervisorSettings(primary, settings);
+    expect(updateSettings).toHaveBeenCalledWith({
+      misc_settings_diff: { supervisor: settings },
     });
   });
 });
