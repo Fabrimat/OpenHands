@@ -7,7 +7,7 @@ every project monitored.
 | Phase | Scope | Status |
 |---|---|---|
 | 1 | Projects: git-repo-based projects stored on the primary server, per-server locations, ClickUp link, cross-server detail view | Spec: [`projects.md`](projects.md) |
-| 2 | Multi-server dashboard | Not designed |
+| 2 | Multi-server dashboard | Spec: [`projects-dashboard.md`](projects-dashboard.md) |
 | 3 | Supervisor agent (federated, autonomy B) | Spec: [`projects-supervisor.md`](projects-supervisor.md) |
 | 4 | Borg backups | Not designed |
 | 5 | Project file storage (S3-compatible, agent-facing) | Not designed |

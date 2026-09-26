@@ -41,6 +41,15 @@ export interface LocationResult<T> {
   data: T;
 }
 
+/** Raw search-result conversation item, as returned by `ConversationClient.searchConversations`. */
+export interface ServerConversationItem {
+  id: string;
+  title?: string | null;
+  updated_at?: string | null;
+  execution_status?: string | null;
+  workspace?: { working_dir?: string | null } | null;
+}
+
 function optionsFor(backend: Backend) {
   return getAgentServerClientOptions({
     host: backend.host,
@@ -57,6 +66,38 @@ function toStatus(
   return q.isSuccess ? "success" : "loading";
 }
 
+/** Shared per-server conversations query, reused by project hooks and the dashboard. */
+export function serverConversationsQuery(backend: Backend) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return {
+    queryKey: PROJECTS_QUERY_KEYS.conversations(
+      backend.id,
+      backend.connectionRevision ?? 0,
+    ),
+    meta: { disableToast: true },
+    // The client's `workspace` field is typed as `unknown`; narrow it to the
+    // shape callers actually read (`working_dir`).
+    queryFn: async () =>
+      new ConversationClient(optionsFor(backend)).searchConversations({
+        limit: CONVERSATION_SCAN_LIMIT,
+        sort_order: ConversationSortOrder.UPDATED_AT_DESC,
+      }) as unknown as { items: ServerConversationItem[] },
+  };
+}
+
+/** Shared per-server automations query, reused by project hooks and the dashboard. */
+export function serverAutomationsQuery(backend: Backend) {
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  return {
+    queryKey: PROJECTS_QUERY_KEYS.automations(
+      backend.id,
+      backend.connectionRevision ?? 0,
+    ),
+    meta: { disableToast: true },
+    queryFn: () => AutomationService.listAutomationsForBackend(backend),
+  };
+}
+
 // @spec PRJ-006 — Project detail aggregates across servers
 // @spec PRJ-007 — Per-server failure isolation
 export function useProjectConversations(project: Project) {
@@ -68,32 +109,25 @@ export function useProjectConversations(project: Project) {
 
   const queries = useQueries({
     queries: resolved.map(({ location, backend }) => ({
-      queryKey: PROJECTS_QUERY_KEYS.conversations(
-        backend?.id ?? `unregistered:${location.host}`,
-        backend?.connectionRevision ?? 0,
-      ),
+      ...(backend
+        ? serverConversationsQuery(backend)
+        : {
+            queryKey: PROJECTS_QUERY_KEYS.conversations(
+              `unregistered:${location.host}`,
+              0,
+            ),
+            meta: { disableToast: true },
+            queryFn: async (): Promise<{ items: ServerConversationItem[] }> =>
+              Promise.resolve({ items: [] }),
+          }),
       enabled: backend !== null,
-      meta: { disableToast: true },
-      queryFn: async () =>
-        new ConversationClient(
-          optionsFor(backend as Backend),
-        ).searchConversations({
-          limit: CONVERSATION_SCAN_LIMIT,
-          sort_order: ConversationSortOrder.UPDATED_AT_DESC,
-        }),
     })),
   });
 
   const locations: LocationResult<ProjectConversation[]>[] = resolved.map(
     ({ location, backend }, i) => {
       const q = queries[i];
-      const items = (q.data?.items ?? []) as Array<{
-        id: string;
-        title?: string | null;
-        updated_at?: string | null;
-        execution_status?: string | null;
-        workspace?: { working_dir?: string | null } | null;
-      }>;
+      const items = q.data?.items ?? [];
       const data = backend
         ? items
             .filter((c) =>
@@ -131,14 +165,7 @@ export function useProjectAutomations(project: Project) {
   ];
 
   const queries = useQueries({
-    queries: uniqueBackends.map((backend) => ({
-      queryKey: PROJECTS_QUERY_KEYS.automations(
-        backend.id,
-        backend.connectionRevision ?? 0,
-      ),
-      meta: { disableToast: true },
-      queryFn: () => AutomationService.listAutomationsForBackend(backend),
-    })),
+    queries: uniqueBackends.map((backend) => serverAutomationsQuery(backend)),
   });
 
   const automations: ProjectAutomation[] = uniqueBackends.flatMap(
