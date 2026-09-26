@@ -116,10 +116,12 @@
       "tests": ["canvas-extensions"]
     },
     {
-      "comment": "Projects: primary-backend storage and cross-server project views",
+      "comment": "Projects: primary-backend storage and cross-server project views, plus the multi-server dashboard",
       "sources": [
         "src/components/features/projects/**",
+        "src/components/features/dashboard/**",
         "src/routes/project*.tsx",
+        "src/routes/dashboard.tsx",
         "src/api/projects-service/**",
         "src/hooks/query/use-projects.ts",
         "src/hooks/query/use-project-data.ts",

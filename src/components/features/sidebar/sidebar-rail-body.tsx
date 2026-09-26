@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderGit2,
+  LayoutDashboard,
   Plus,
   Server,
   Settings,
@@ -199,6 +200,13 @@ export function SidebarRailBody({
           testId="sidebar-conversations-link"
           collapsed={collapsed}
           icon={<Plus width={ICON_SIZE} height={ICON_SIZE} />}
+        />
+        <SidebarNavLink
+          to="/dashboard"
+          label={t(I18nKey.DASHBOARD$TITLE)}
+          testId="sidebar-dashboard-link"
+          collapsed={collapsed}
+          icon={<LayoutDashboard width={ICON_SIZE} height={ICON_SIZE} />}
         />
         <SidebarNavLink
           to="/projects"
