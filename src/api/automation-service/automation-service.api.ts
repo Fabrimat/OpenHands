@@ -14,6 +14,7 @@ import type {
   AutomationsResponse,
   AutomationRunsResponse,
 } from "#/types/automation";
+import type { DesiredAutomation } from "#/utils/supervisor-sync";
 import type {
   GitSyncCheckResponse,
   GitSyncConfigUpdateRequest,
@@ -311,6 +312,33 @@ class AutomationService {
         ...(await buildPinnedLocalConfig(backend)),
         params: { limit, offset: 0 },
       },
+    );
+    return data;
+  }
+
+  // @spec PRJ-205 — Automations created per backend (single POST, no import dance)
+  static async createAutomationForBackend(
+    backend: Backend,
+    desired: DesiredAutomation,
+  ): Promise<Automation> {
+    const { data } = await localAutomationAxios.post<Automation>(
+      `${AUTOMATION_BASE_PATH}${getAutomationEndpoint("createPrompt")}`,
+      desired,
+      await buildPinnedLocalConfig(backend),
+    );
+    return data;
+  }
+
+  // @spec PRJ-205 — Automations created per backend (single POST, no import dance)
+  static async updateAutomationForBackend(
+    backend: Backend,
+    id: string,
+    patch: Partial<DesiredAutomation>,
+  ): Promise<Automation> {
+    const { data } = await localAutomationAxios.patch<Automation>(
+      `${AUTOMATION_BASE_PATH}${getAutomationIdEndpoint("detail", id)}`,
+      patch,
+      await buildPinnedLocalConfig(backend),
     );
     return data;
   }
