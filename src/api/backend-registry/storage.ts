@@ -35,7 +35,8 @@ function isValidBackend(value: unknown): value is Backend {
     (v.connectionRevision === undefined ||
       (typeof v.connectionRevision === "number" &&
         Number.isSafeInteger(v.connectionRevision) &&
-        v.connectionRevision >= 0))
+        v.connectionRevision >= 0)) &&
+    (v.isPrimary === undefined || typeof v.isPrimary === "boolean")
   );
 }
 

@@ -9,7 +9,10 @@ import {
   BACKEND_HEALTH_STORAGE_KEY,
   MAX_CONSECUTIVE_FAILURES,
 } from "#/api/backend-registry/health-storage";
-import { __resetActiveStoreForTests } from "#/api/backend-registry/active-store";
+import {
+  __resetActiveStoreForTests,
+  getRegisteredBackends,
+} from "#/api/backend-registry/active-store";
 import { __resetHealthStoreForTests } from "#/api/backend-registry/health-store";
 import {
   ActiveBackendProvider,
@@ -494,6 +497,35 @@ describe("ManageBackendsModal", () => {
     expect(
       screen.queryByTestId("manage-backends-org-Acme Local"),
     ).not.toBeInTheDocument();
+  });
+
+  // @spec PRJ-002 — Primary backend selection
+  it("marks a local backend as primary from its row", async () => {
+    const user = userEvent.setup();
+    let secondLocalId = "";
+
+    renderWithProviders(
+      <TestSeed
+        onMount={(ctx) => {
+          secondLocalId = ctx.addBackend({
+            name: "vps",
+            host: "http://vps:8000",
+            apiKey: "k",
+            kind: "local",
+          }).id;
+        }}
+      >
+        <ManageBackendsModal onClose={vi.fn()} />
+      </TestSeed>,
+    );
+
+    await user.click(
+      await screen.findByTestId("manage-backends-set-primary-vps"),
+    );
+
+    expect(
+      getRegisteredBackends().find((b) => b.id === secondLocalId)?.isPrimary,
+    ).toBe(true);
   });
 
   it("captures backend_added with source manage_backends_modal when adding from here", async () => {

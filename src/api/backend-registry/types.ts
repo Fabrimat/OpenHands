@@ -10,6 +10,8 @@ export interface Backend {
   authMode?: BackendAuthMode;
   /** Changes whenever connection credentials change, invalidating keyed data. */
   connectionRevision?: number;
+  /** Per-browser choice of the server that stores shared project data. */
+  isPrimary?: boolean;
 }
 
 export interface BackendSelection {

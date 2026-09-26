@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Pencil, RefreshCw, Star, Trash2 } from "lucide-react";
 
 import { type Backend } from "#/api/backend-registry/types";
 import {
@@ -26,6 +26,7 @@ interface BackendRowProps {
   onEdit: () => void;
   onRemove: () => void;
   onLogin?: (apiKey: string) => void;
+  onSetPrimary?: () => void;
 }
 
 export function BackendRow({
@@ -36,6 +37,7 @@ export function BackendRow({
   onEdit,
   onRemove,
   onLogin,
+  onSetPrimary,
 }: BackendRowProps) {
   const { t } = useTranslation("openhands");
   const isInvalidApiKey = isInvalidBackendApiKeyHealthError(health?.lastError);
@@ -133,6 +135,27 @@ export function BackendRow({
             statusDisplay="modal"
             analyticsSource="manage_backends_modal"
           />
+        ) : null}
+        {!lockedCloudHost && backend.kind === "local" && onSetPrimary ? (
+          <button
+            type="button"
+            onClick={onSetPrimary}
+            aria-label={t(
+              backend.isPrimary
+                ? I18nKey.PROJECTS$PRIMARY
+                : I18nKey.PROJECTS$SET_PRIMARY,
+            )}
+            aria-pressed={backend.isPrimary === true}
+            data-testid={`manage-backends-set-primary-${backend.name}`}
+            className={ROW_ACTION_BUTTON_CLASS}
+          >
+            <Star
+              aria-hidden
+              className="size-4"
+              strokeWidth={2}
+              fill={backend.isPrimary ? "currentColor" : "none"}
+            />
+          </button>
         ) : null}
         {!lockedCloudHost && (
           <button

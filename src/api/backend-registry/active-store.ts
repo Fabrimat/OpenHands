@@ -161,6 +161,19 @@ export function setActiveSelection(selection: BackendSelection | null): void {
   notify();
 }
 
+// @spec PRJ-002 — Primary backend selection
+export function selectPrimaryBackend(backends: Backend[]): Backend | null {
+  const locals = backends.filter((b) => b.kind === "local");
+  return locals.find((b) => b.isPrimary) ?? locals[0] ?? null;
+}
+
+// @spec PRJ-002 — Primary backend selection
+export function markPrimaryBackend(id: string): void {
+  setRegisteredBackends(
+    getRegisteredBackends().map((b) => ({ ...b, isPrimary: b.id === id })),
+  );
+}
+
 export function setRegisteredBackends(backends: Backend[]): void {
   writeStoredBackends(backends);
 

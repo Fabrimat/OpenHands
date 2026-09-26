@@ -41565,5 +41565,39 @@
     "uk": "Підключення \"{{name}}\" оновлено",
     "zh-CN": "已更新连接“{{name}}”",
     "zh-TW": "已更新連線「{{name}}」"
+  },
+  "PROJECTS$SET_PRIMARY": {
+    "ar": "تعيين كخادم رئيسي",
+    "ca": "Estableix com a principal",
+    "de": "Als primär festlegen",
+    "en": "Set as primary",
+    "es": "Establecer como principal",
+    "fr": "Définir comme principal",
+    "it": "Imposta come principale",
+    "ja": "プライマリに設定",
+    "ko-KR": "기본으로 설정",
+    "no": "Angi som primær",
+    "pt": "Definir como principal",
+    "tr": "Birincil olarak ayarla",
+    "uk": "Зробити основним",
+    "zh-CN": "设为主服务器",
+    "zh-TW": "設為主伺服器"
+  },
+  "PROJECTS$PRIMARY": {
+    "ar": "رئيسي",
+    "ca": "Principal",
+    "de": "Primär",
+    "en": "Primary",
+    "es": "Principal",
+    "fr": "Principal",
+    "it": "Principale",
+    "ja": "プライマリ",
+    "ko-KR": "기본",
+    "no": "Primær",
+    "pt": "Principal",
+    "tr": "Birincil",
+    "uk": "Основний",
+    "zh-CN": "主服务器",
+    "zh-TW": "主伺服器"
   }
 }

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 
 import { getLockedCloudHost } from "#/api/agent-server-config";
+import { markPrimaryBackend } from "#/api/backend-registry/active-store";
 import { type Backend } from "#/api/backend-registry/types";
 import { BrandButton } from "#/components/features/settings/brand-button";
 import { ConfirmationModal } from "#/components/shared/modals/confirmation-modal";
@@ -188,6 +189,7 @@ export function ManageBackendsModal({
                           ? undefined
                           : (apiKey) => handleCloudLogin(backend, apiKey)
                       }
+                      onSetPrimary={() => markPrimaryBackend(backend.id)}
                     />
                   ))}
                 </ul>
