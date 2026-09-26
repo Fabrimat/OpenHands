@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import {
   ChevronLeft,
   ChevronRight,
+  FolderGit2,
   Plus,
   Server,
   Settings,
@@ -198,6 +199,13 @@ export function SidebarRailBody({
           testId="sidebar-conversations-link"
           collapsed={collapsed}
           icon={<Plus width={ICON_SIZE} height={ICON_SIZE} />}
+        />
+        <SidebarNavLink
+          to="/projects"
+          label={t(I18nKey.PROJECTS$TITLE)}
+          testId="sidebar-projects-link"
+          collapsed={collapsed}
+          icon={<FolderGit2 width={ICON_SIZE} height={ICON_SIZE} />}
         />
         <SidebarNavLink
           to={CUSTOMIZE_PATH}
