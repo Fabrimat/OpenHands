@@ -46,7 +46,7 @@ export function ProjectsList() {
 
   const create = async (project: Project) => {
     try {
-      await save.mutateAsync([...projects.data, project]);
+      await save.mutateAsync((current) => [...current, project]);
       setIsCreating(false);
     } catch {
       displayErrorToast(t(I18nKey.PROJECTS$SAVE_FAILED));

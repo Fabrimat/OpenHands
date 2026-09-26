@@ -179,4 +179,20 @@ describe("ProjectDetail", () => {
 
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "a" }), []);
   });
+
+  // @spec PRJ-007 — Primary unreachable: same error + Retry as the list,
+  // no edit/delete affordance
+  it("shows the primary-unreachable error with Retry instead of edit/delete", async () => {
+    vi.spyOn(ProjectsService, "getProjects").mockRejectedValue(
+      new Error("Network Error"),
+    );
+    renderDetail();
+
+    expect(
+      await screen.findByText(I18nKey.PROJECTS$PRIMARY_UNREACHABLE),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("projects-retry")).toBeInTheDocument();
+    expect(screen.queryByTestId("project-edit")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("project-delete")).not.toBeInTheDocument();
+  });
 });

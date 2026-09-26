@@ -49,6 +49,10 @@ interface ProjectLocation {
 }
 ```
 
+- Location hosts and the primary backend should use each server's tailnet
+  (e.g. Tailscale) hostname, not `localhost` — a `localhost` location or
+  primary only resolves from the browser that created it, so other devices
+  can't reach it (see `docs/SELF_HOSTING.md`).
 - `misc_settings_diff` replaces lists wholesale, so every save sends the full
   `projects` array. Concurrent edits from two browsers are last-write-wins
   (acceptable: single user).
@@ -139,4 +143,4 @@ interface ProjectLocation {
 
 Remote agent-servers must allow the origin the frontend is served from, or
 browser fan-out fails (surfaces as PRJ-007 "unreachable"). Document the
-agent-server CORS setting in `docs/backend-management.md` as part of phase 1.
+agent-server CORS setting in `docs/SELF_HOSTING.md` as part of phase 1.

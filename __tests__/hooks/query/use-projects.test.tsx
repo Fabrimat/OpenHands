@@ -10,6 +10,7 @@ import {
 } from "#/api/backend-registry/active-store";
 import { ProjectsService } from "#/api/projects-service/projects-service.api";
 import { useProjects, useSaveProjects } from "#/hooks/query/use-projects";
+import type { Project } from "#/types/project";
 
 const active = {
   id: "a",
@@ -56,7 +57,37 @@ describe("useProjects", () => {
     vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([]);
     const save = vi.spyOn(ProjectsService, "saveProjects").mockResolvedValue();
     const { result } = renderHook(() => useSaveProjects(), { wrapper });
-    await result.current.mutateAsync([]);
+    await result.current.mutateAsync(() => []);
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "p" }), []);
+  });
+
+  // @spec PRJ-001 — Saves apply the updater to a freshly fetched list, not a
+  // stale render-time cache, so a concurrent write can't drop a project.
+  it("applies the updater to a freshly fetched list instead of a stale cache", async () => {
+    const serverProject: Project = {
+      id: "server-1",
+      name: "server",
+      repo_url: "github.com/a/server",
+      locations: [],
+    };
+    vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([serverProject]);
+    const save = vi.spyOn(ProjectsService, "saveProjects").mockResolvedValue();
+    const { result } = renderHook(() => useSaveProjects(), { wrapper });
+
+    const newProject: Project = {
+      id: "new-1",
+      name: "new",
+      repo_url: "github.com/a/new",
+      locations: [],
+    };
+    // The caller's render-time cache never had `serverProject` in it; the
+    // updater only appends `newProject`, so it must survive only if the
+    // mutation re-fetched the list itself.
+    await result.current.mutateAsync((current) => [...current, newProject]);
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "p" }), [
+      serverProject,
+      newProject,
+    ]);
   });
 });

@@ -25,15 +25,29 @@ export function useProjects() {
   });
 }
 
+// @spec PRJ-001 — Projects persist on the primary server
+// Callers pass an updater instead of a full array: the mutation re-fetches
+// the current list from the primary server first and applies the updater to
+// that fresh result, so a stale render-time cache (e.g. a concurrent save
+// from another tab, or a slow initial load) can't silently drop projects.
 export function useSaveProjects() {
   const primary = usePrimaryBackend();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (projects: Project[]) => {
+    mutationFn: async (update: (current: Project[]) => Project[]) => {
       if (!primary) throw new Error("No primary backend");
-      await ProjectsService.saveProjects(primary, projects);
+      const current = await ProjectsService.getProjects(primary);
+      const next = update(current);
+      await ProjectsService.saveProjects(primary, next);
+      return next;
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEYS.all }),
+    onSuccess: (next) => {
+      if (!primary) return;
+      queryClient.setQueryData(
+        PROJECTS_QUERY_KEYS.list(primary.id, primary.connectionRevision ?? 0),
+        next,
+      );
+      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEYS.lists() });
+    },
   });
 }
