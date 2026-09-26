@@ -81,45 +81,45 @@ interface ProjectLocation {
 ## Specs
 
 ### PRJ-001: Projects persist on the primary server
-- [ ] Projects shall be read from and written to `misc_settings.projects` of the primary backend, regardless of which backend is active.
-- [ ] Each save shall send the full projects array through `misc_settings_diff`.
+- [x] Projects shall be read from and written to `misc_settings.projects` of the primary backend, regardless of which backend is active.
+- [x] Each save shall send the full projects array through `misc_settings_diff`.
 
 ### PRJ-002: Primary backend selection
-- [ ] The user shall be able to mark exactly one registered backend as primary from Manage Backends.
-- [ ] When none is marked, the first local backend shall act as primary.
+- [x] The user shall be able to mark exactly one registered backend as primary from Manage Backends.
+- [x] When none is marked, the first local backend shall act as primary.
 
 ### PRJ-003: Project CRUD
-- [ ] The user shall create a project with name, repo URL, one or more locations (server + folder path), optional ClickUp link and notes.
-- [ ] The folder browser shall be offered for locations on the active server; locations on other servers take a typed path (the folder browser only browses the active backend).
-- [ ] The user shall edit a project and delete it after a confirmation step.
-- [ ] Repo URLs shall be stored normalized (PRJ-008).
+- [x] The user shall create a project with name, repo URL, one or more locations (server + folder path), optional ClickUp link and notes.
+- [x] The folder browser shall be offered for locations on the active server; locations on other servers take a typed path (the folder browser only browses the active backend).
+- [x] The user shall edit a project and delete it after a confirmation step.
+- [x] Repo URLs shall be stored normalized (PRJ-008).
 
 ### PRJ-004: Repo auto-detection
-- [ ] When a location is added on a reachable server and the repo URL field is empty, the app shall prefill it from that checkout's git remote.
+- [x] When a location is added on a reachable server and the repo URL field is empty, the app shall prefill it from that checkout's git remote.
 
 ### PRJ-005: Projects list
-- [ ] `/projects` shall list every project with name, repo, a health dot per location's server, and counts of conversations and automations.
+- [x] `/projects` shall list every project with name, repo, a health dot per location's server, and counts of conversations and automations.
 
 ### PRJ-006: Project detail aggregates across servers
-- [ ] `/projects/:projectId` shall show, per location, server health, path and current branch.
-- [ ] It shall list conversations from every location's server whose `working_dir` matches the location path, each with a server badge, newest first.
-- [ ] It shall list automations, from every location's server, whose `repository` matches the project repo (automations carry no working dir).
+- [x] `/projects/:projectId` shall show, per location, server health, path and current branch.
+- [x] It shall list conversations from every location's server whose `working_dir` matches the location path, each with a server badge, newest first.
+- [x] It shall list automations, from every location's server, whose `repository` matches the project repo (automations carry no working dir).
 
 ### PRJ-007: Per-server failure isolation
-- [ ] An unreachable, unauthorized or CORS-blocked server shall show "server unreachable" in its own section only; other servers' data shall still render, and no global error toast shall fire per failing server.
-- [ ] If the primary backend is unreachable, the projects list shall show an error naming the primary server with a Retry action; no local fallback store.
+- [x] An unreachable, unauthorized or CORS-blocked server shall show "server unreachable" in its own section only; other servers' data shall still render, and no global error toast shall fire per failing server.
+- [x] If the primary backend is unreachable, the projects list shall show an error naming the primary server with a Retry action; no local fallback store.
 
 ### PRJ-008: Path and repo matching
-- [ ] `matchesProjectLocation` shall match a working dir equal to or nested under the path, normalizing `\`/`/` separators, trailing slashes, and (for Windows drive paths) case; `/srv/app` shall not match `/srv/app2`.
-- [ ] `normalizeRepoUrl` shall treat `https://github.com/a/b.git`, `git@github.com:a/b.git` and `github.com/a/b/` as equal.
+- [x] `matchesProjectLocation` shall match a working dir equal to or nested under the path, normalizing `\`/`/` separators, trailing slashes, and (for Windows drive paths) case; `/srv/app` shall not match `/srv/app2`.
+- [x] `normalizeRepoUrl` shall treat `https://github.com/a/b.git`, `git@github.com:a/b.git` and `github.com/a/b/` as equal.
 
 ### PRJ-009: Cross-server actions
-- [ ] "New conversation here" on a location on a non-active server shall switch the active backend to it (existing environment switch), then create the conversation with `workingDirOverride = path`.
-- [ ] Opening a conversation from another server shall switch backend before navigating.
+- [x] "New conversation here" on a location on a non-active server shall switch the active backend to it (existing environment switch), then create the conversation with `workingDirOverride = path`.
+- [x] Opening a conversation from another server shall switch backend before navigating.
 
 ### PRJ-010: Mock and i18n coverage
-- [ ] `dev:mock` MSW handlers shall serve `misc_settings.projects`.
-- [ ] All copy shall use `PROJECTS$*` i18n keys in all supported languages.
+- [x] `dev:mock` MSW handlers shall serve `misc_settings.projects`.
+- [x] All copy shall use `PROJECTS$*` i18n keys in all supported languages.
 
 ## Testing
 
