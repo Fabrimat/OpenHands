@@ -71,8 +71,8 @@ interface ProjectLocation {
   (`query-keys.ts`):
   - `useProjects()`, `useSaveProjects()`
   - `useProjectConversations(project)`: `useQueries`, one per location
-  - `useProjectAutomations(project)`: same, via automation service per backend
-  - `useProjectGitInfo(location)`: branch/remote via `RemoteWorkspace`
+  - `useProjectAutomations(project)`: same, via a new per-backend automation list; matched by `repository`
+  - `useProjectGitInfo(location)`: branch/remote via `RemoteWorkspace.executeCommand` reusing the `GIT_INFO_COMMAND` script from `use-local-git-info.ts` (no git-info endpoint exists)
 - Routes (`src/routes.ts`): `projects` → `routes/projects-list.tsx`,
   `projects/:projectId` → `routes/project-detail.tsx`. Components under
   `src/components/features/projects/`. Sidebar entry "Projects" below
@@ -89,7 +89,8 @@ interface ProjectLocation {
 - [ ] When none is marked, the first local backend shall act as primary.
 
 ### PRJ-003: Project CRUD
-- [ ] The user shall create a project with name, repo URL, one or more locations (server + folder via the folder browser), optional ClickUp link and notes.
+- [ ] The user shall create a project with name, repo URL, one or more locations (server + folder path), optional ClickUp link and notes.
+- [ ] The folder browser shall be offered for locations on the active server; locations on other servers take a typed path (the folder browser only browses the active backend).
 - [ ] The user shall edit a project and delete it after a confirmation step.
 - [ ] Repo URLs shall be stored normalized (PRJ-008).
 
@@ -102,7 +103,7 @@ interface ProjectLocation {
 ### PRJ-006: Project detail aggregates across servers
 - [ ] `/projects/:projectId` shall show, per location, server health, path and current branch.
 - [ ] It shall list conversations from every location's server whose `working_dir` matches the location path, each with a server badge, newest first.
-- [ ] It shall list automations whose working dir matches a location.
+- [ ] It shall list automations, from every location's server, whose `repository` matches the project repo (automations carry no working dir).
 
 ### PRJ-007: Per-server failure isolation
 - [ ] An unreachable, unauthorized or CORS-blocked server shall show "server unreachable" in its own section only; other servers' data shall still render, and no global error toast shall fire per failing server.
