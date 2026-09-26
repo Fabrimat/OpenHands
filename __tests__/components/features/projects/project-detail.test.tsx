@@ -4,6 +4,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderWithProviders } from "test-utils";
+import type { NavigationContextValue } from "#/context/navigation-context";
 import { ActiveBackendProvider } from "#/contexts/active-backend-context";
 import {
   __resetActiveStoreForTests,
@@ -16,6 +17,12 @@ import AutomationService from "#/api/automation-service/automation-service.api";
 import AgentServerConversationService from "#/api/conversation-service/agent-server-conversation-service.api";
 import { ProjectDetail } from "#/components/features/projects/project-detail";
 import { I18nKey } from "#/i18n/declaration";
+import { displayErrorToast } from "#/utils/custom-toast-handlers";
+
+vi.mock("#/utils/custom-toast-handlers", () => ({
+  displayErrorToast: vi.fn(),
+  displaySuccessToast: vi.fn(),
+}));
 
 const search = vi.hoisted(() => vi.fn());
 vi.mock("@openhands/typescript-client/clients", async (orig) => ({
@@ -60,7 +67,7 @@ const project = {
   ],
 };
 
-function renderDetail() {
+function renderDetail(navigation?: Partial<NavigationContextValue>) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return renderWithProviders(
     <QueryClientProvider client={qc}>
@@ -68,6 +75,7 @@ function renderDetail() {
         <ProjectDetail projectId="1" />
       </ActiveBackendProvider>
     </QueryClientProvider>,
+    { navigation },
   );
 }
 
@@ -133,6 +141,29 @@ describe("ProjectDetail", () => {
         }),
       ]),
     );
+  });
+
+  // @spec PRJ-009 — Cross-server actions: a failing server doesn't navigate
+  it("shows an error toast and does not navigate when starting the conversation fails", async () => {
+    search.mockResolvedValue({ items: [] });
+    vi.spyOn(
+      AgentServerConversationService,
+      "createConversation",
+    ).mockRejectedValue(new Error("boom"));
+    const navigateMock = vi.fn();
+    const user = userEvent.setup();
+    renderDetail({ navigate: navigateMock });
+
+    await user.click(
+      await screen.findByTestId("project-location-new-conversation-1"),
+    );
+
+    await vi.waitFor(() =>
+      expect(displayErrorToast).toHaveBeenCalledWith(
+        I18nKey.PROJECTS$CONVERSATION_START_FAILED,
+      ),
+    );
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   // @spec PRJ-003 — Delete requires confirmation

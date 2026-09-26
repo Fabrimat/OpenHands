@@ -1,5 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Backend } from "#/api/backend-registry/types";
 import AgentServerConversationService from "#/api/conversation-service/agent-server-conversation-service.api";
 import { BrandButton } from "#/components/features/settings/brand-button";
@@ -11,6 +12,7 @@ import {
 } from "#/hooks/query/use-project-data";
 import { useProjects, useSaveProjects } from "#/hooks/query/use-projects";
 import { useSwitchBackend } from "#/hooks/use-switch-backend";
+import { useTracking } from "#/hooks/use-tracking";
 import { I18nKey } from "#/i18n/declaration";
 import type { Project } from "#/types/project";
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
@@ -38,6 +40,8 @@ function ProjectDetailBody({
   const { navigate } = useNavigation();
   const switchBackend = useSwitchBackend();
   const save = useSaveProjects();
+  const queryClient = useQueryClient();
+  const { trackConversationCreated } = useTracking();
   const { locations, conversations } = useProjectConversations(project);
   const { automations, failedBackendIds } = useProjectAutomations(project);
   const [editing, setEditing] = React.useState(false);
@@ -59,19 +63,49 @@ function ProjectDetailBody({
   // that hook captures the active backend from a render-time hook closure,
   // which would race the just-triggered switch; the service instead reads
   // `getActiveBackend()` live at call time, so it always targets the server
-  // we just switched to.
+  // we just switched to. Since that bypasses `useCreateConversation`'s own
+  // `onSuccess`, its query invalidations and the canonical
+  // `conversation_start_requested` tracking event are mirrored here
+  // (see `use-create-conversation.ts`'s `onSuccess`); a failed switch or
+  // create is caught so a bad server surfaces an error toast instead of an
+  // unhandled rejection.
   const startConversation = async (backend: Backend, path: string) => {
-    await switchBackend(backend);
-    const result = await AgentServerConversationService.createConversation({
-      workingDirOverride: path,
-      workspaceMode: "local_repo",
-    });
-    navigate(`/conversations/${result.app_conversation_id ?? result.id}`);
+    try {
+      await switchBackend(backend);
+      const result = await AgentServerConversationService.createConversation({
+        workingDirOverride: path,
+        workspaceMode: "local_repo",
+      });
+      const conversationId = result.app_conversation_id
+        ? result.app_conversation_id
+        : `task-${result.id}`;
+
+      trackConversationCreated({
+        conversationId,
+        taskId: result.id,
+        hasRepository: false,
+        hasWorkspace: true,
+        workspaceMode: "local_repo",
+        hasInitialQuery: false,
+        hasParentConversation: false,
+        entryPoint: "project_detail",
+      });
+      queryClient.invalidateQueries({ queryKey: ["user", "conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["start-tasks"] });
+
+      navigate(`/conversations/${conversationId}`);
+    } catch {
+      displayErrorToast(t(I18nKey.PROJECTS$CONVERSATION_START_FAILED));
+    }
   };
 
   const openConversation = async (backend: Backend, id: string) => {
-    await switchBackend(backend);
-    navigate(`/conversations/${id}`);
+    try {
+      await switchBackend(backend);
+      navigate(`/conversations/${id}`);
+    } catch {
+      displayErrorToast(t(I18nKey.PROJECTS$CONVERSATION_START_FAILED));
+    }
   };
 
   return (

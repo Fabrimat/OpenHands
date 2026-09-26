@@ -57,6 +57,7 @@ export function ProjectLocationRow({
           variant="secondary"
           className="ml-auto"
           testId={`project-location-new-conversation-${index}`}
+          isDisabled={status !== "success"}
           onClick={() => onNewConversation(backend, location.path)}
         >
           {t(I18nKey.PROJECTS$NEW_CONVERSATION_HERE)}

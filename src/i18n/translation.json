@@ -41904,6 +41904,23 @@
     "zh-CN": "无法保存项目。",
     "zh-TW": "無法保存專案。"
   },
+  "PROJECTS$CONVERSATION_START_FAILED": {
+    "ar": "تعذر بدء المحادثة على هذا الخادم.",
+    "ca": "No s'ha pogut iniciar la conversa en aquest servidor.",
+    "de": "Die Unterhaltung konnte auf diesem Server nicht gestartet werden.",
+    "en": "Could not start the conversation on this server.",
+    "es": "No se pudo iniciar la conversación en este servidor.",
+    "fr": "Impossible de démarrer la conversation sur ce serveur.",
+    "it": "Impossibile avviare la conversazione su questo server.",
+    "ja": "このサーバーで会話を開始できませんでした。",
+    "ko-KR": "이 서버에서 대화를 시작할 수 없습니다.",
+    "no": "Kunne ikke starte samtalen på denne serveren.",
+    "pt": "Não foi possível iniciar a conversa neste servidor.",
+    "tr": "Bu sunucuda konuşma başlatılamadı.",
+    "uk": "Не вдалося розпочати розмову на цьому сервері.",
+    "zh-CN": "无法在此服务器上开始对话。",
+    "zh-TW": "無法在此伺服器上開始對話。"
+  },
   "PROJECTS$PRIMARY_UNREACHABLE": {
     "ar": "تعذر تحميل المشاريع من الخادم الرئيسي \"{{name}}\".",
     "ca": "No s'han pogut carregar els projectes des del servidor principal \"{{name}}\".",
