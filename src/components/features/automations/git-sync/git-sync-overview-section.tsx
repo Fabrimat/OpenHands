@@ -3,7 +3,7 @@ import { I18nKey } from "#/i18n/declaration";
 import { RefreshCw } from "lucide-react";
 import type { GitSyncStatus } from "#/types/git-sync";
 import { formatTimeDelta } from "#/utils/format-time-delta";
-import { parseGitRemoteUrl } from "#/utils/parse-git-remote-url";
+import { repoBrowseUrl } from "#/utils/parse-git-remote-url";
 import { cn } from "#/utils/utils";
 import GitBranchIcon from "#/icons/git-branch.svg?react";
 import GlobeIcon from "#/icons/globe.svg?react";
@@ -17,32 +17,6 @@ import {
   GitSyncActivityRow,
   type GitSyncActivityState,
 } from "./git-sync-activity-row";
-
-/**
- * A browsable URL for the configured remote, or `null` when there isn't one.
- * A bare repo on disk is a valid sync target, so a local path -- and anything
- * else that doesn't parse -- stays plain text rather than becoming a dead link.
- *
- * An http(s) remote is already browsable, so it is reused as-is apart from the
- * `.git` suffix and any embedded credentials, which keeps forge-specific paths
- * (Azure's `org/project/_git/repo`) and non-default ports intact. Other schemes
- * -- `ssh://`, `git://`, `git@host:owner/repo` -- carry no browsable form, so
- * they are rebuilt over https from the parsed host and repository.
- */
-function browseUrlFor(repoUrl: string): string | null {
-  const parsed = parseGitRemoteUrl(repoUrl);
-  if (!parsed?.host || !parsed.repository) return null;
-
-  if (/^https?:\/\//i.test(parsed.url)) {
-    const url = new URL(parsed.url);
-    url.username = "";
-    url.password = "";
-    url.pathname = url.pathname.replace(/\.git$/, "");
-    return url.toString();
-  }
-
-  return `https://${parsed.host}/${parsed.repository}`;
-}
 
 interface GitSyncOverviewSectionProps {
   status: GitSyncStatus;
@@ -62,7 +36,7 @@ export function GitSyncOverviewSection({
   canManage,
 }: GitSyncOverviewSectionProps) {
   const { t } = useTranslation("openhands");
-  const repoHref = browseUrlFor(status.repo_url);
+  const repoHref = repoBrowseUrl(status.repo_url);
 
   return (
     <SectionCard

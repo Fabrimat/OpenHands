@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { parseGitRemoteUrl } from "#/utils/parse-git-remote-url";
+import { parseGitRemoteUrl, repoBrowseUrl } from "#/utils/parse-git-remote-url";
 
 describe("parseGitRemoteUrl", () => {
   it("returns null for empty/whitespace input", () => {
@@ -95,9 +95,7 @@ describe("parseGitRemoteUrl", () => {
   });
 
   it("parses Bitbucket Cloud URLs", () => {
-    const result = parseGitRemoteUrl(
-      "https://bitbucket.org/owner/repo.git",
-    );
+    const result = parseGitRemoteUrl("https://bitbucket.org/owner/repo.git");
     expect(result?.provider).toBe("bitbucket");
     expect(result?.repository).toBe("owner/repo");
   });
@@ -128,5 +126,17 @@ describe("parseGitRemoteUrl", () => {
 
   it("returns null for unparseable strings", () => {
     expect(parseGitRemoteUrl("not a url")).toBeNull();
+  });
+});
+
+describe("repoBrowseUrl", () => {
+  it.each([
+    ["https://tok@github.com/Fab/App.git", "https://github.com/Fab/App"],
+    ["git@github.com:Fab/App.git", "https://github.com/Fab/App"],
+    ["github.com/fab/app", "https://github.com/fab/app"],
+    ["/srv/repo", null],
+    ["C:/src/repo", null],
+  ])("%s -> %s", (input, expected) => {
+    expect(repoBrowseUrl(input)).toBe(expected);
   });
 });

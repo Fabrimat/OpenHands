@@ -11,8 +11,8 @@ every project monitored.
 | 3 | Supervisor agent (federated, autonomy B) | Spec: [`projects-supervisor.md`](projects-supervisor.md) |
 | 4 | Borg backups | Not designed |
 | 5 | Project file storage (S3-compatible, agent-facing) | Not designed |
-| 6 | Centralized memory (basic-memory) | Not designed |
-| 7 | Centralized MCP (metamcp) | Not designed |
+| 6 | Centralized MCP management (generic; metamcp as endpoint) | Not designed |
+| 7 | Centralized memory via MCP (basic-memory through metamcp) | Not designed |
 
 ## Phase 2: Multi-server dashboard
 
@@ -69,23 +69,22 @@ Per-project file storage beyond the git repo, used mainly by agents (specs, inpu
 - Include the bucket in Borg backups (phase 4), or rely on provider versioning.
 - Open questions: MinIO self-hosted vs. managed provider; mount (rclone) vs. CLI-only access; how agents learn the path (e.g. injected into the conversation's system suffix, like `<RUNTIME_SERVICES>`).
 
-## Phase 6: Centralized memory (basic-memory)
+## Phase 6: Centralized MCP (generic)
 
-One memory store shared by every agent on every server, managed from the canvas.
+Configure MCP servers once, in one place, instead of on every agent-server. The canvas treats MCP generically — no metamcp-specific code; metamcp (what the user runs) is just an aggregating MCP endpoint like any other.
 
-- The user already runs basic-memory; every agent-server points at the same instance over MCP (ideally through metamcp, phase 7), so agents on any server read/write the same project knowledge.
-- Canvas: a memory page to browse/search notes, filtered per project (e.g. a basic-memory project or folder per canvas project, referenced from `Project`).
-- Optional: inject a pointer to the project's memory into conversation context, like `<RUNTIME_SERVICES>`.
-- Open questions: mapping canvas project ↔ basic-memory project/folder; read-only vs. editable in the canvas; whether the supervisor writes its daily status to memory as well as (or instead of) the tracker.
+- Canvas: one view of the MCP servers configured on every registered agent-server (reusing the existing MCP page's data per backend), whether each responds, and which tools it exposes.
+- Push the same MCP entry (e.g. the user's metamcp endpoint, with a per-server or per-project namespace) to all servers' MCP settings in one action; show drift where a server differs.
+- Side benefit: one shared endpoint gives the supervisor's tracker MCP (spike Q2) the same config on all servers.
+- Open questions: per-server vs. per-project MCP sets; credential custody for endpoint keys (agent-server secrets, never `misc_settings`); whether to read tool lists live or only on demand.
 
-## Phase 7: Centralized MCP (metamcp)
+## Phase 7: Centralized memory (via MCP)
 
-Configure MCP servers once, in one place, instead of on every agent-server.
+One memory store shared by every agent on every server. basic-memory is reached through metamcp like any other MCP (phase 6), so there is no basic-memory-specific integration in the agent path.
 
-- The user already runs metamcp; each agent-server's MCP config points at a metamcp endpoint (namespace per server or per project).
-- Canvas: one view of which MCP servers/namespaces each agent-server uses and whether they respond; push the metamcp endpoint to every registered server's MCP settings in one action.
-- Side benefit: gives the supervisor's tracker MCP (spike Q2) a single shared endpoint on all servers.
-- Open questions: metamcp API for listing namespaces/tools (read-only first); credential custody for the metamcp endpoint key (agent-server secrets, never `misc_settings`).
+- Agents on any server read/write the same project knowledge through the shared MCP endpoint.
+- Canvas: optionally a memory view per project (browse/search notes) by calling the memory MCP's tools, and a per-project pointer to its memory space on `Project`.
+- Open questions: mapping canvas project ↔ memory project/folder; read-only vs. editable in the canvas; whether the supervisor also writes its daily status to memory.
 
 ## Remaining items / ideas
 

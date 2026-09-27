@@ -112,6 +112,9 @@ describe("ProjectDetail", () => {
     renderDetail();
     expect(await screen.findByText("Fix login")).toBeInTheDocument();
     expect(
+      screen.getByRole("link", { name: "github.com/fab/app" }),
+    ).toHaveAttribute("href", "https://github.com/fab/app");
+    expect(
       await screen.findByText(I18nKey.PROJECTS$SERVER_UNREACHABLE),
     ).toBeInTheDocument();
   });

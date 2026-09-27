@@ -87,7 +87,7 @@ describe("ProjectsList", () => {
   });
 
   // @spec PRJ-003 — Project CRUD
-  it("creates a project with a normalized repo URL", async () => {
+  it("creates a project with a browsable, case-preserving repo URL", async () => {
     vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([]);
     const save = vi.spyOn(ProjectsService, "saveProjects").mockResolvedValue();
     const user = userEvent.setup();
@@ -105,7 +105,7 @@ describe("ProjectsList", () => {
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "p" }), [
       expect.objectContaining({
         name: "App",
-        repo_url: "github.com/fab/app",
+        repo_url: "https://github.com/Fab/App",
         locations: [{ host: "http://vps1:8000", path: "/srv/app" }],
       }),
     ]);

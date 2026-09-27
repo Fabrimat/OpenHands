@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { repoBrowseUrl } from "#/utils/parse-git-remote-url";
 import type { Backend } from "#/api/backend-registry/types";
 import type { BackendHealth } from "#/hooks/query/use-backends-health";
 import { BackendStatusDot } from "#/components/features/backends/backend-status-dot";
@@ -57,7 +58,20 @@ export function ProjectCard({ project, backends, health }: ProjectCardProps) {
       >
         {project.name}
       </NavigationLink>
-      <span className="text-xs text-[var(--oh-muted)]">{project.repo_url}</span>
+      {repoBrowseUrl(project.repo_url) ? (
+        <a
+          href={repoBrowseUrl(project.repo_url) ?? undefined}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs text-[var(--oh-muted)] hover:underline"
+        >
+          {project.repo_url}
+        </a>
+      ) : (
+        <span className="text-xs text-[var(--oh-muted)]">
+          {project.repo_url}
+        </span>
+      )}
       <ul className="flex flex-col gap-1">
         {project.locations.map((loc) => {
           const backend = resolveLocationBackend(loc, backends);

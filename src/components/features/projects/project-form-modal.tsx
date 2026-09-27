@@ -25,6 +25,7 @@ import { cn } from "#/utils/utils";
 import type { Project, ProjectLocation } from "#/types/project";
 import type { TrackerLink, TrackerProviderId } from "#/types/tracker";
 import { TRACKER_PROVIDERS, isValidTrackerLink } from "#/utils/trackers";
+import { repoBrowseUrl } from "#/utils/parse-git-remote-url";
 import {
   normalizeHost,
   normalizeRepoUrl,
@@ -108,7 +109,10 @@ export function ProjectFormModal({
   );
   React.useEffect(() => {
     if (!repoUrl && gitInfo.data?.remoteUrl) {
-      setRepoUrl(normalizeRepoUrl(gitInfo.data.remoteUrl));
+      setRepoUrl(
+        repoBrowseUrl(gitInfo.data.remoteUrl) ??
+          normalizeRepoUrl(gitInfo.data.remoteUrl),
+      );
     }
   }, [gitInfo.data?.remoteUrl]);
 
@@ -141,7 +145,9 @@ export function ProjectFormModal({
     onSubmit({
       id: initial?.id ?? uuidv4(),
       name: name.trim(),
-      repo_url: normalizeRepoUrl(repoUrl),
+      // Keep a browsable, credential-free URL (case preserved); matching
+      // normalizes on compare, so the stored form need not be canonical.
+      repo_url: repoBrowseUrl(repoUrl) ?? repoUrl.trim(),
       locations: cleaned,
       ...(tracker ? { tracker } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),

@@ -1,4 +1,5 @@
 import React from "react";
+import { repoBrowseUrl } from "#/utils/parse-git-remote-url";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Backend } from "#/api/backend-registry/types";
@@ -151,9 +152,20 @@ function ProjectDetailBody({ project }: { project: Project }) {
         <h1 className="text-xl font-medium leading-6 text-foreground">
           {project.name}
         </h1>
-        <span className="text-xs text-[var(--oh-muted)]">
-          {project.repo_url}
-        </span>
+        {repoBrowseUrl(project.repo_url) ? (
+          <a
+            href={repoBrowseUrl(project.repo_url) ?? undefined}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-[var(--oh-muted)] hover:underline"
+          >
+            {project.repo_url}
+          </a>
+        ) : (
+          <span className="text-xs text-[var(--oh-muted)]">
+            {project.repo_url}
+          </span>
+        )}
         {project.tracker?.url ? (
           <a
             href={project.tracker.url}

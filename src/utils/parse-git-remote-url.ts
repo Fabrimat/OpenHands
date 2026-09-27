@@ -93,3 +93,34 @@ export function parseGitRemoteUrl(
 
   return null;
 }
+
+/**
+ * A browsable URL for the configured remote, or `null` when there isn't one.
+ * A bare repo on disk is a valid sync target, so a local path -- and anything
+ * else that doesn't parse -- stays plain text rather than becoming a dead link.
+ *
+ * An http(s) remote is already browsable, so it is reused as-is apart from the
+ * `.git` suffix and any embedded credentials, which keeps forge-specific paths
+ * (Azure's `org/project/_git/repo`) and non-default ports intact. Other schemes
+ * -- `ssh://`, `git://`, `git@host:owner/repo` -- carry no browsable form, so
+ * they are rebuilt over https from the parsed host and repository.
+ */
+export function repoBrowseUrl(repoUrl: string): string | null {
+  // Bare `host.tld/owner/repo` (hand-typed) is read as https; local paths
+  // (`/srv/repo`, `C:/repo`) never match and stay plain text.
+  const bare = /^[\w-]+(\.[\w-]+)+\//.test(repoUrl.trim());
+  const parsed = bare
+    ? parseGitRemoteUrl(`https://${repoUrl.trim()}`)
+    : parseGitRemoteUrl(repoUrl);
+  if (!parsed?.host || !parsed.repository) return null;
+
+  if (/^https?:\/\//i.test(parsed.url)) {
+    const url = new URL(parsed.url);
+    url.username = "";
+    url.password = "";
+    url.pathname = url.pathname.replace(/\.git$/, "");
+    return url.toString();
+  }
+
+  return `https://${parsed.host}/${parsed.repository}`;
+}
