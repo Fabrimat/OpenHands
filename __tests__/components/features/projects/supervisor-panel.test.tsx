@@ -74,15 +74,36 @@ describe("SupervisorPanel", () => {
         { host: "http://vps1:8000", label: "vps1", enabled: true },
       ],
     });
+    // Stateful list mock: after `create` runs, a refetched list must reflect
+    // the created automation, otherwise the panel's post-sync reset (which
+    // falls back to the live rows query — see PRJ-208 finding #7) would
+    // observe a stale empty list and re-flip the row back to "pending".
+    const store: Record<string, import("#/types/automation").Automation[]> = {
+      [pc1.host]: [],
+    };
     vi.spyOn(AutomationService, "listAutomationsForBackend").mockImplementation(
       async (backend) => {
         if (backend.host === vps1.host) throw new Error("Network Error");
-        return { automations: [], total: 0 };
+        const automations = store[backend.host] ?? [];
+        return { automations, total: automations.length };
       },
     );
     const create = vi
       .spyOn(AutomationService, "createAutomationForBackend")
-      .mockResolvedValue({} as never);
+      .mockImplementation(async (backend, desired) => {
+        const automation = {
+          id: "new-1",
+          name: desired.name,
+          prompt: desired.prompt,
+          trigger: desired.trigger,
+          timeout: desired.timeout,
+          enabled: desired.enabled,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        };
+        store[backend.host] = [...(store[backend.host] ?? []), automation];
+        return automation as never;
+      });
     const user = userEvent.setup();
     renderPanel();
 
@@ -140,6 +161,80 @@ describe("SupervisorPanel", () => {
     expect(
       screen.queryByText(I18nKey.SUPERVISOR$SUMMARY_TOO_EARLY),
     ).not.toBeInTheDocument();
+  });
+
+  // @spec PRJ-207 — The warning uses the enabled server's actual index in
+  // `settings.servers` (its real stagger offset), not the count of enabled
+  // servers: a disabled first server must not understate the last enabled
+  // server's stagger.
+  it("warns using the enabled server's real stagger offset when earlier servers are disabled", async () => {
+    vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([]);
+    vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
+      enabled: true,
+      timezone: "Europe/Rome",
+      run_time: "08:00",
+      summary_time: "09:00",
+      timeout_seconds: 1800,
+      summary_clickup_list_id: "list-1",
+      servers: [
+        { host: "http://pc1:8000", label: "pc1", enabled: false },
+        { host: "http://vps1:8000", label: "vps1", enabled: false },
+        { host: "http://vps2:8000", label: "vps2", enabled: true },
+      ],
+    });
+    vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({
+      automations: [],
+      total: 0,
+    });
+    renderPanel();
+
+    const summaryInput = await screen.findByTestId("supervisor-summary-time");
+    expect(summaryInput).toHaveValue("09:00");
+
+    // vps2 is index 2 -> real stagger 10 min -> runs at 08:10, plus the
+    // 30-minute timeout -> not-too-early threshold is 08:40. A naive
+    // enabled-count formula (1 enabled server -> offset 0) would place the
+    // threshold at 08:30 and miss this case.
+    fireEvent.change(summaryInput, { target: { value: "08:30" } });
+    expect(
+      screen.getByText(I18nKey.SUPERVISOR$SUMMARY_TOO_EARLY),
+    ).toBeInTheDocument();
+
+    fireEvent.change(summaryInput, { target: { value: "08:40" } });
+    expect(
+      screen.queryByText(I18nKey.SUPERVISOR$SUMMARY_TOO_EARLY),
+    ).not.toBeInTheDocument();
+  });
+
+  // @spec PRJ-201 — Clearing the timeout must disable Save and show an
+  // inline error instead of silently resetting all settings on save.
+  it("disables Save and shows an inline error when the timeout is cleared", async () => {
+    vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([]);
+    vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
+      enabled: true,
+      timezone: "Europe/Rome",
+      run_time: "08:00",
+      summary_time: "09:00",
+      timeout_seconds: 1800,
+      summary_clickup_list_id: "",
+      servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
+    });
+    vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({
+      automations: [],
+      total: 0,
+    });
+    renderPanel();
+
+    const timeoutInput = await screen.findByTestId("supervisor-timeout");
+    const saveButton = await screen.findByTestId("supervisor-save");
+    expect(saveButton).toBeEnabled();
+
+    fireEvent.change(timeoutInput, { target: { value: "" } });
+
+    expect(
+      screen.getByText(I18nKey.SUPERVISOR$TIMEOUT_INVALID),
+    ).toBeInTheDocument();
+    expect(saveButton).toBeDisabled();
   });
 
   // @spec PRJ-206 — Auto re-sync uses freshly-saved settings, not the
@@ -215,7 +310,10 @@ describe("SupervisorPanel", () => {
       });
     });
 
-    it("copies the row's desired prompt to the clipboard", async () => {
+    // @spec PRJ-207 — Available before enable+save, not only for an
+    // already-enabled/persisted row (a spike deploy needs the exact prompt
+    // before the supervisor is ever turned on).
+    it("copies the row's desired prompt to the clipboard while disabled and never saved", async () => {
       vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([
         {
           id: "1",
@@ -225,14 +323,19 @@ describe("SupervisorPanel", () => {
         },
       ]);
       vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
-        enabled: true,
+        enabled: false,
         timezone: "Europe/Rome",
         run_time: "08:00",
         summary_time: "09:00",
         timeout_seconds: 1800,
         summary_clickup_list_id: "",
-        servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
+        servers: [{ host: "http://pc1:8000", label: "pc1", enabled: false }],
       });
+      // `vi.spyOn` re-wraps an already-mocked method in place, so an earlier
+      // test's call history on this shared spy would otherwise leak in here.
+      const saveSettings = vi
+        .spyOn(ProjectsService, "saveSupervisorSettings")
+        .mockReset();
       vi.spyOn(
         AutomationService,
         "listAutomationsForBackend",
@@ -251,6 +354,7 @@ describe("SupervisorPanel", () => {
       const [copiedPrompt] = writeText.mock.calls[0];
       expect(copiedPrompt).toContain("<!-- agent-canvas:supervisor v1 -->");
       expect(copiedPrompt).toContain('"App"');
+      expect(saveSettings).not.toHaveBeenCalled();
     });
   });
 });

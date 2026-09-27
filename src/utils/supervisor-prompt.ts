@@ -43,10 +43,14 @@ function dataBlock(value: unknown): string {
   return ["```json", json, "```"].join("\n");
 }
 
-// @spec PRJ-203 — Deterministic prompts
+// @spec PRJ-203, PRJ-209 — Deterministic prompts; projects without a ClickUp
+// list are reported under the summary list's per-server section rather than
+// only the ephemeral finish summary (falls back to the finish summary when
+// no summary list is configured).
 export function buildServerSupervisorPrompt(
   label: string,
   projects: Project[],
+  summaryListId: string,
 ): string {
   const data = [...projects]
     .sort((a, b) => a.id.localeCompare(b.id))
@@ -56,6 +60,9 @@ export function buildServerSupervisorPrompt(
       paths: p.locations.map((l) => l.path),
       clickup_list_id: p.clickup?.list_id ?? null,
     }));
+  const noListInstruction = summaryListId
+    ? `- Projects whose clickup_list_id is null: in the ClickUp list with id "${summaryListId}", find or create the task "📊 Progetti senza lista ClickUp — ${label}" and REPLACE its description with the list of these project names (do not create a duplicate if a task with that exact title already exists).`
+    : '- Projects whose clickup_list_id is null: do not write to a project list; include them in your finish summary under "Progetti senza lista ClickUp".';
   // Note: paths includes every location path; the agent checks only paths that exist on this machine.
   return [
     SUPERVISOR_MARKER,
@@ -73,7 +80,7 @@ export function buildServerSupervisorPrompt(
     `- In the project's ClickUp list, find the task "📊 Stato progetto" (create it if missing). Under it, find or create the subtask "📊 Stato — ${label}" and REPLACE its description with: date/time, then one section per path with branch, ahead/behind, uncommitted count, last commit date, and any issue kinds.`,
     `- For each issue, ensure an open task titled exactly "[${label}] <project name>: <kind>" exists with tag "supervisor-suggestion" and a one-paragraph proposed action; do not create a duplicate if an open task with that exact title exists.`,
     `- Close every open task tagged "supervisor-suggestion" whose title starts with "[${label}] " and whose condition no longer holds.`,
-    '- Projects whose clickup_list_id is null: do not write to a project list; include them in your finish summary under "Progetti senza lista ClickUp".',
+    noListInstruction,
     "Finish: call `finish` with status `failed` if the ClickUp MCP is unavailable, `partial_success` if some projects could not be checked, otherwise `success`, and an outcome_summary of one line per project.",
   ].join("\n\n");
 }

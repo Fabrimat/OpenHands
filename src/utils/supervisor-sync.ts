@@ -74,7 +74,11 @@ export function buildSupervisorTargets(
       desired: wanted
         ? desiredFor(
             supervisorAutomationName(server.label),
-            buildServerSupervisorPrompt(server.label, own),
+            buildServerSupervisorPrompt(
+              server.label,
+              own,
+              settings.summary_clickup_list_id,
+            ),
             settings.run_time,
             index * SUPERVISOR_STAGGER_MINUTES,
           )

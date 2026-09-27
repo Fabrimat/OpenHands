@@ -213,6 +213,42 @@ describe("AutomationService", () => {
     });
   });
 
+  // @spec PRJ-006 — Reconciliation must see every automation on a server, not
+  // just the first page
+  describe("listAutomationsForBackend", () => {
+    it("pages until exhausted and returns every automation", async () => {
+      const secondAutomation: Automation = { ...mockAutomation, id: "2" };
+      mockGet
+        .mockResolvedValueOnce({
+          data: { automations: [mockAutomation], total: 2 },
+        })
+        .mockResolvedValueOnce({
+          data: { automations: [secondAutomation], total: 2 },
+        });
+
+      const result = await AutomationService.listAutomationsForBackend(
+        localBackend,
+        1,
+      );
+
+      expect(mockGet).toHaveBeenCalledTimes(2);
+      expect(mockGet).toHaveBeenNthCalledWith(
+        1,
+        "/api/automation/v1",
+        expect.objectContaining({ params: { limit: 1, offset: 0 } }),
+      );
+      expect(mockGet).toHaveBeenNthCalledWith(
+        2,
+        "/api/automation/v1",
+        expect.objectContaining({ params: { limit: 1, offset: 1 } }),
+      );
+      expect(result).toEqual({
+        automations: [mockAutomation, secondAutomation],
+        total: 2,
+      });
+    });
+  });
+
   describe("getAutomation", () => {
     it("fetches a single automation by id", async () => {
       mockGet.mockResolvedValue({

@@ -301,19 +301,29 @@ class AutomationService {
     return AutomationService.listAutomations({ limit, offset });
   }
 
-  // @spec PRJ-006 — Project detail aggregates across servers
+  // @spec PRJ-006 — Project detail aggregates across servers; pages until
+  // exhausted so a server with more than one page of automations is fully
+  // reconciled (a supervisor automation past the first page must still be
+  // found by name, not silently recreated as a duplicate).
   static async listAutomationsForBackend(
     backend: Backend,
     limit = 100,
   ): Promise<AutomationsResponse> {
-    const { data } = await localAutomationAxios.get<AutomationsResponse>(
-      `${AUTOMATION_BASE_PATH}${getAutomationEndpoint("list")}`,
-      {
-        ...(await buildPinnedLocalConfig(backend)),
-        params: { limit, offset: 0 },
-      },
-    );
-    return data;
+    const config = await buildPinnedLocalConfig(backend);
+    const automations: Automation[] = [];
+    let offset = 0;
+    let total = Number.POSITIVE_INFINITY;
+    while (offset < total) {
+      const { data } = await localAutomationAxios.get<AutomationsResponse>(
+        `${AUTOMATION_BASE_PATH}${getAutomationEndpoint("list")}`,
+        { ...config, params: { limit, offset } },
+      );
+      automations.push(...data.automations);
+      total = data.total;
+      offset += data.automations.length;
+      if (data.automations.length === 0) break;
+    }
+    return { automations, total };
   }
 
   // @spec PRJ-205 — Automations created per backend (single POST, no import dance)

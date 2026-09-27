@@ -12,6 +12,7 @@ import {
 import type { Backend } from "#/api/backend-registry/types";
 import { ProjectsService } from "#/api/projects-service/projects-service.api";
 import AutomationService from "#/api/automation-service/automation-service.api";
+import type { Automation } from "#/types/automation";
 import type { Project } from "#/types/project";
 import type { SupervisorSettings } from "#/types/supervisor";
 import { SUPERVISOR_MARKER } from "#/utils/supervisor-prompt";
@@ -182,6 +183,102 @@ describe("useSupervisorSync", () => {
       expect.anything(),
     );
     expect(rows.find((r) => r.target.label === "pc1")?.state).toBe("synced");
+  });
+
+  // Controller ruling: a race between two syncs (or a manual "Sync now"
+  // racing an auto re-sync) must not leave a permanent duplicate automation.
+  // @spec PRJ-204, PRJ-208 — Self-heal keeps only the reconciled automation
+  it("disables a duplicate automation sharing the desired name, keeping the reconciled one", async () => {
+    const kept: Automation = {
+      id: "kept",
+      name: "Supervisore — pc1",
+      enabled: true,
+      prompt: `${SUPERVISOR_MARKER}\nsame prompt`,
+      trigger: { type: "cron", schedule: "0 8 * * *", timezone: "Europe/Rome" },
+      timeout: 1800,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    const duplicate: Automation = {
+      ...kept,
+      id: "duplicate",
+    };
+    vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
+      ...settings,
+      summary_clickup_list_id: "",
+      servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
+    });
+    vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({
+      automations: [kept, duplicate],
+      total: 2,
+    });
+    const update = vi
+      .spyOn(AutomationService, "updateAutomationForBackend")
+      .mockResolvedValue({} as never);
+
+    const { result } = renderHook(() => useSyncHarness(), { wrapper });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+    const rows = await result.current.sync.mutateAsync();
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "pc1" }),
+      "duplicate",
+      { enabled: false },
+    );
+    // "kept" may still receive its own reconciling update (e.g. a refreshed
+    // prompt), but it must never be the one disabled.
+    expect(update).not.toHaveBeenCalledWith(
+      expect.anything(),
+      "kept",
+      expect.objectContaining({ enabled: false }),
+    );
+    expect(rows.find((r) => r.target.label === "pc1")?.state).toBe("synced");
+  });
+
+  // @spec PRJ-204, PRJ-208 — Concurrent syncs serialize via mutation `scope`
+  it("serializes two back-to-back sync calls so a target is created only once", async () => {
+    vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
+      ...settings,
+      summary_clickup_list_id: "",
+      servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
+    });
+    // Stateful list mock: the second (serialized) run must see the first
+    // run's freshly-created automation, or it would create a second one.
+    const store: Record<string, Automation[]> = { "http://pc1:8000": [] };
+    vi.spyOn(AutomationService, "listAutomationsForBackend").mockImplementation(
+      async (backend) => {
+        const automations = store[backend.host] ?? [];
+        return { automations, total: automations.length };
+      },
+    );
+    const create = vi
+      .spyOn(AutomationService, "createAutomationForBackend")
+      .mockImplementation(async (backend, desired) => {
+        const automation: Automation = {
+          id: `new-${(store[backend.host] ?? []).length}`,
+          name: desired.name,
+          prompt: desired.prompt,
+          trigger: desired.trigger,
+          timeout: desired.timeout,
+          enabled: desired.enabled,
+          created_at: "2026-01-01T00:00:00Z",
+          updated_at: "2026-01-01T00:00:00Z",
+        };
+        store[backend.host] = [...(store[backend.host] ?? []), automation];
+        return automation;
+      });
+
+    const { result } = renderHook(() => useSyncHarness(), { wrapper });
+    await waitFor(() => expect(result.current.ready).toBe(true));
+
+    const [rowsA, rowsB] = await Promise.all([
+      result.current.sync.mutateAsync(),
+      result.current.sync.mutateAsync(),
+    ]);
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(rowsA.find((r) => r.target.label === "pc1")?.state).toBe("synced");
+    expect(rowsB.find((r) => r.target.label === "pc1")?.state).toBe("synced");
   });
 });
 

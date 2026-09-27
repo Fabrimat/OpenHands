@@ -165,6 +165,36 @@ async function disableRenamedAutomations(
   );
 }
 
+// A concurrent sync (two "Sync now" clicks, or a manual click racing an
+// auto re-sync from a project/settings save) can each see no automation
+// named `desiredName` yet and both create one, leaving a permanent
+// duplicate. After reconciling, disable every *other* enabled, marker-carrying
+// automation on this server sharing the exact desired name — keeping only
+// the one this run just reconciled (`keepId`, undefined when this run
+// itself created the automation, since a fresh create can't already be a
+// duplicate of anything in the pre-create `listed` snapshot).
+async function disableDuplicateAutomations(
+  backend: Backend,
+  listed: Automation[],
+  desiredName: string,
+  keepId: string | undefined,
+): Promise<void> {
+  const duplicates = listed.filter(
+    (a) =>
+      a.enabled &&
+      a.id !== keepId &&
+      a.name === desiredName &&
+      a.prompt?.startsWith(SUPERVISOR_MARKER),
+  );
+  await Promise.all(
+    duplicates.map((a) =>
+      AutomationService.updateAutomationForBackend(backend, a.id, {
+        enabled: false,
+      }),
+    ),
+  );
+}
+
 // Extracted so `useSupervisorSync` can run it against freshly-fetched
 // settings/projects (see below) instead of the render-time query cache.
 async function runSupervisorSync(
@@ -216,6 +246,12 @@ async function runSupervisorSync(
           },
         );
       }
+      await disableDuplicateAutomations(
+        target.backend,
+        listed,
+        nameOf(target),
+        existing?.id,
+      );
       if (target.key !== SUMMARY_TARGET_KEY) {
         await disableRenamedAutomations(target.backend, listed, nameOf(target));
       }
@@ -240,7 +276,9 @@ export function useSupervisorSync() {
   const { backends } = useActiveBackendContext();
   const primary = usePrimaryBackend();
   const queryClient = useQueryClient();
-  return useMutation({
+  // `onSettled` below closes over `mutation` to reset it; the callback only
+  // runs after a `mutate()` call, by which point `mutation` is assigned.
+  const mutation = useMutation({
     mutationFn: async (): Promise<SupervisorRow[]> => {
       if (!primary) return [];
       const [settings, projects] = await Promise.all([
@@ -255,7 +293,23 @@ export function useSupervisorSync() {
       );
       return runSupervisorSync(targets);
     },
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: SUPERVISOR_QUERY_KEYS.all }),
+    // @spec PRJ-204, PRJ-208 — Concurrent syncs (two "Sync now" clicks, or a
+    // manual click racing an auto re-sync triggered by a project/settings
+    // save) share this scope id so TanStack Query serializes their
+    // `mutationFn` calls instead of racing them; a serialized second run
+    // then sees the first run's freshly-created/updated automations instead
+    // of also creating them.
+    scope: { id: "supervisor-sync" },
+    onSettled: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: SUPERVISOR_QUERY_KEYS.all,
+      });
+      // Once the invalidated rows/settings queries have refetched, drop this
+      // mutation's own snapshot so the panel goes back to reflecting the
+      // live rows query (`rowFor` in supervisor-panel.tsx otherwise prefers
+      // `sync.data` forever, even after it goes stale).
+      mutation.reset();
+    },
   });
+  return mutation;
 }

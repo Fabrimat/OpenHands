@@ -7,7 +7,7 @@ import { SettingsSwitch } from "#/components/features/settings/settings-switch";
 import { LoadingSpinner } from "#/components/shared/loading-spinner";
 import { useActiveBackendContext } from "#/contexts/active-backend-context";
 import { useBackendsHealth } from "#/hooks/query/use-backends-health";
-import { usePrimaryBackend } from "#/hooks/query/use-projects";
+import { usePrimaryBackend, useProjects } from "#/hooks/query/use-projects";
 import {
   useSaveSupervisorSettings,
   useSupervisorRows,
@@ -18,12 +18,23 @@ import {
 import { I18nKey } from "#/i18n/declaration";
 import {
   DEFAULT_SUPERVISOR_SETTINGS,
+  isValidSupervisorSettings,
+  isValidTimezone,
+  LABEL_PATTERN,
+  LIST_ID_PATTERN,
   TIME_PATTERN,
+  TIMEOUT_MAX_SECONDS,
+  TIMEOUT_MIN_SECONDS,
   type SupervisorServer,
   type SupervisorSettings,
 } from "#/types/supervisor";
+import { displayErrorToast } from "#/utils/custom-toast-handlers";
 import { formControlSettingsFieldClassName } from "#/utils/form-control-classes";
 import { hostsMatch, normalizeHost } from "#/utils/project-matching";
+import {
+  buildServerSupervisorPrompt,
+  projectsForHost,
+} from "#/utils/supervisor-prompt";
 import {
   SUPERVISOR_STAGGER_MINUTES,
   SUMMARY_TARGET_KEY,
@@ -56,6 +67,7 @@ export function SupervisorPanel() {
   const saveSettings = useSaveSupervisorSettings();
   const committedRows = useSupervisorRows();
   const sync = useSupervisorSync();
+  const projects = useProjects();
 
   const [local, setLocal] = React.useState<SupervisorSettings>(
     DEFAULT_SUPERVISOR_SETTINGS,
@@ -90,31 +102,58 @@ export function SupervisorPanel() {
     (b) => !local.servers.some((s) => hostsMatch(s.host, b.host)),
   );
 
-  // Review fix — labels must be non-empty and unique. Track per-row so the
-  // offending input(s) can show an inline error instead of a silently
-  // disabled Save button.
+  // Review fix — labels must be non-empty, unique, and restricted to
+  // `LABEL_PATTERN` (they're interpolated unescaped into prompt prose and
+  // ClickUp task titles). Track per-row so the offending input(s) can show
+  // an inline error instead of a silently disabled Save button.
   const trimmedLabels = local.servers.map((s) => s.label.trim().toLowerCase());
   const labelCounts = trimmedLabels.reduce<Record<string, number>>(
     (acc, label) => ({ ...acc, [label]: (acc[label] ?? 0) + 1 }),
     {},
   );
   const isLabelInvalid = (index: number) =>
-    trimmedLabels[index] === "" || labelCounts[trimmedLabels[index]] > 1;
+    !LABEL_PATTERN.test(local.servers[index].label) ||
+    labelCounts[trimmedLabels[index]] > 1;
   const labelsValid = trimmedLabels.every((_, i) => !isLabelInvalid(i));
 
   const runTimeValid = TIME_PATTERN.test(local.run_time);
   const summaryTimeValid = TIME_PATTERN.test(local.summary_time);
-  const enabledServers = local.servers.filter((s) => s.enabled).length;
+  const timezoneValid = isValidTimezone(local.timezone);
+  const timeoutValid =
+    Number.isInteger(local.timeout_seconds) &&
+    local.timeout_seconds >= TIMEOUT_MIN_SECONDS &&
+    local.timeout_seconds <= TIMEOUT_MAX_SECONDS;
+  const listIdValid = LIST_ID_PATTERN.test(local.summary_clickup_list_id);
+
+  // @spec PRJ-207 — Summary-too-early warning uses the largest index among
+  // *enabled* servers (not the enabled count): the stagger a server actually
+  // runs at is `index * STAGGER` in the full `servers` order regardless of
+  // how many earlier servers are disabled (see `buildSupervisorTargets`).
+  // The result is wrapped modulo 24h, matching `supervisorCronSchedule`, so
+  // a run_time/stagger combination that crosses midnight compares against
+  // the wrapped clock time rather than an ever-growing offset.
+  const lastEnabledIndex = local.servers.reduce(
+    (max, s, i) => (s.enabled ? i : max),
+    -1,
+  );
+  const lastRunMinutes =
+    lastEnabledIndex >= 0
+      ? (minutesOf(local.run_time) +
+          lastEnabledIndex * SUPERVISOR_STAGGER_MINUTES) %
+        (24 * 60)
+      : minutesOf(local.run_time);
   const tooEarly =
     runTimeValid &&
     summaryTimeValid &&
     minutesOf(local.summary_time) <
-      minutesOf(local.run_time) +
-        SUPERVISOR_STAGGER_MINUTES * Math.max(enabledServers - 1, 0) +
-        Math.ceil(local.timeout_seconds / 60);
+      lastRunMinutes + Math.ceil(local.timeout_seconds / 60);
 
   const canSave =
-    !primaryUnreachable && labelsValid && runTimeValid && summaryTimeValid;
+    !primaryUnreachable &&
+    labelsValid &&
+    listIdValid &&
+    isValidSupervisorSettings(local) &&
+    isValidTimezone(local.timezone);
 
   const updateServer = (index: number, patch: Partial<SupervisorServer>) => {
     setLocal((prev) => ({
@@ -142,8 +181,12 @@ export function SupervisorPanel() {
   };
 
   const save = async () => {
-    await saveSettings.mutateAsync(local);
-    sync.mutate();
+    try {
+      await saveSettings.mutateAsync(local);
+      sync.mutate();
+    } catch {
+      displayErrorToast(t(I18nKey.ERROR$GENERIC));
+    }
   };
 
   return (
@@ -217,6 +260,11 @@ export function SupervisorPanel() {
               type="text"
               value={local.timezone}
               isDisabled={primaryUnreachable}
+              error={
+                !timezoneValid
+                  ? t(I18nKey.SUPERVISOR$TIMEZONE_INVALID)
+                  : undefined
+              }
               onChange={(value) =>
                 setLocal((prev) => ({ ...prev, timezone: value }))
               }
@@ -227,6 +275,11 @@ export function SupervisorPanel() {
               type="number"
               value={String(local.timeout_seconds)}
               isDisabled={primaryUnreachable}
+              error={
+                !timeoutValid
+                  ? t(I18nKey.SUPERVISOR$TIMEOUT_INVALID)
+                  : undefined
+              }
               onChange={(value) =>
                 setLocal((prev) => ({
                   ...prev,
@@ -241,6 +294,9 @@ export function SupervisorPanel() {
               value={local.summary_clickup_list_id}
               isDisabled={primaryUnreachable}
               className="col-span-2"
+              error={
+                !listIdValid ? t(I18nKey.SUPERVISOR$LIST_ID_INVALID) : undefined
+              }
               onChange={(value) =>
                 setLocal((prev) => ({
                   ...prev,
@@ -314,10 +370,18 @@ export function SupervisorPanel() {
                     type="button"
                     variant="secondary"
                     testId={`${TEST_ID_ROOT}-copy-prompt-${server.label}`}
-                    isDisabled={!row?.target.desired?.prompt}
+                    isDisabled={!server.label.trim() || !projects.data}
                     onClick={() => {
-                      const prompt = row?.target.desired?.prompt;
-                      if (prompt) void navigator.clipboard.writeText(prompt);
+                      // @spec PRJ-207 — Copy the prompt from local (unsaved)
+                      // panel state so a spike deploy works before the
+                      // supervisor is ever enabled/saved, not only once a row
+                      // has a desired automation.
+                      const prompt = buildServerSupervisorPrompt(
+                        server.label,
+                        projectsForHost(projects.data ?? [], server.host),
+                        local.summary_clickup_list_id,
+                      );
+                      void navigator.clipboard.writeText(prompt);
                     }}
                   >
                     {t(I18nKey.SUPERVISOR$COPY_PROMPT)}
@@ -363,7 +427,7 @@ export function SupervisorPanel() {
               type="button"
               variant="secondary"
               testId={`${TEST_ID_ROOT}-sync-now`}
-              isDisabled={primaryUnreachable}
+              isDisabled={primaryUnreachable || sync.isPending}
               onClick={() => sync.mutate()}
             >
               {t(I18nKey.SUPERVISOR$SYNC_NOW)}
