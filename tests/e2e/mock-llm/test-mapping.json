@@ -97,6 +97,7 @@
         "src/components/features/mcp-page/**",
         "src/routes/mcp*.tsx",
         "src/utils/mcp-marketplace-utils.ts",
+        "src/utils/mcp-fleet.ts",
         "src/mocks/mcp-handlers.ts"
       ],
       "tests": ["mcp"]

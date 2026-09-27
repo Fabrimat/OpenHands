@@ -22,6 +22,7 @@ import {
 import { MCPServerConfig } from "#/types/mcp-server";
 import { flattenMcpConfig } from "#/utils/mcp-installed-servers";
 import {
+  AllServersSection,
   InstalledServersSection,
   McpToolbar,
   MarketplaceSection,
@@ -134,6 +135,10 @@ export default function MCPPage() {
               </BrandButton>
             </div>
           </div>
+
+          {/* Self-hides below 2 local backends (useMcpFleet's column count),
+              so it can always be mounted here without route-level gating. */}
+          <AllServersSection />
 
           <McpToolbar
             search={searchQuery}
