@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { MCPConfig, MCPServer } from "@openhands/typescript-client";
 import type { Backend } from "#/api/backend-registry/types";
 import type { MCPServerConfig } from "#/types/mcp-server";
-import { REDACTED_MCP_SECRET_VALUE } from "#/utils/mcp-config";
+import {
+  REDACTED_MCP_SECRET_VALUE,
+  toCanonicalMcpServer,
+} from "#/utils/mcp-config";
 import {
   buildFleetMatrix,
   buildReplacementPatch,
@@ -44,6 +47,32 @@ function rowFor(configs: (MCPConfig | null)[]) {
   }));
   const rows = buildFleetMatrix(columns);
   return rows.find((row) => row.key === "x")!;
+}
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+
+/** RFC 7386 JSON merge-patch apply, mirroring the agent-server's semantics. */
+function applyMergePatch(
+  target: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged = { ...target };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) {
+      delete merged[key];
+    } else if (isPlainObject(value)) {
+      merged[key] = applyMergePatch(
+        isPlainObject(merged[key])
+          ? (merged[key] as Record<string, unknown>)
+          : {},
+        value,
+      );
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged;
 }
 
 describe("mcpFingerprint", () => {
@@ -192,8 +221,108 @@ describe("buildReplacementPatch", () => {
 
     expect(patch.env).toEqual({ A: "new-a", B: null });
   });
+
+  // @spec PRJ-603 — Replacement shall not keep old fields
+  it.each<{ name: string; previous: MCPServer; edited: MCPServerConfig }>([
+    {
+      name: "remote→remote with a header key dropped while others remain",
+      previous: remoteServer({
+        headers: { "X-Foo": "bar", "X-Keep": "keep" },
+      } as Partial<MCPServer>),
+      edited: {
+        id: "x",
+        type: "shttp",
+        name: "x",
+        url: "https://mcp.example/a",
+        headers: { "X-Keep": "keep" },
+      },
+    },
+    {
+      name: "remote→remote with a header value changed",
+      previous: remoteServer({
+        headers: { "X-Foo": "bar" },
+      } as Partial<MCPServer>),
+      edited: {
+        id: "x",
+        type: "shttp",
+        name: "x",
+        url: "https://mcp.example/a",
+        headers: { "X-Foo": "baz" },
+      },
+    },
+    {
+      name: "stdio→remote",
+      previous: stdioServer({ env: { A: "1" } }),
+      edited: {
+        id: "x",
+        type: "shttp",
+        name: "x",
+        url: "https://mcp.example/new",
+        headers: { "X-New": "v" },
+      },
+    },
+    {
+      name: "remote→stdio",
+      previous: remoteServer({
+        headers: { "X-Foo": "bar" },
+        auth: { strategy: "header", headers: { Authorization: "secret" } },
+      } as Partial<MCPServer>),
+      edited: {
+        id: "x",
+        type: "stdio",
+        name: "x",
+        command: "npx",
+        args: ["-y", "server"],
+      },
+    },
+    {
+      name: "stdio with a dropped env key",
+      previous: stdioServer({ env: { A: "1", B: "2" } }),
+      edited: {
+        id: "x",
+        type: "stdio",
+        name: "x",
+        command: "npx",
+        env: { A: "new-a" },
+      },
+    },
+    {
+      name: "auth dropped",
+      previous: remoteServer({
+        auth: { strategy: "none" },
+      } as Partial<MCPServer>),
+      edited: {
+        id: "x",
+        type: "shttp",
+        name: "x",
+        url: "https://mcp.example/a",
+      },
+    },
+    {
+      name: "timeout dropped",
+      previous: remoteServer({ timeout: 30 } as Partial<MCPServer>),
+      edited: {
+        id: "x",
+        type: "shttp",
+        name: "x",
+        url: "https://mcp.example/a",
+      },
+    },
+  ])(
+    "$name: merge(previous, patch) equals the canonical edited server",
+    ({ previous, edited }) => {
+      const canonical = toCanonicalMcpServer(edited);
+      const patch = buildReplacementPatch(previous, edited);
+      const merged = applyMergePatch(
+        previous as unknown as Record<string, unknown>,
+        patch as unknown as Record<string, unknown>,
+      );
+      expect(merged).toEqual(canonical);
+    },
+  );
 });
 
+// @spec PRJ-603 — Secret values are blocked before they can be sent
 describe("hasRedactedSecret", () => {
   it("is true for a redacted env value", () => {
     expect(

@@ -9,6 +9,7 @@ import {
   buildMcpServerPatch,
   getMcpServerEnabled,
   hasRedactedMcpSecretLeaf,
+  REDACTED_MCP_SECRET_VALUE,
   toCanonicalMcpServer,
 } from "#/utils/mcp-config";
 
@@ -147,6 +148,28 @@ export function buildFleetMatrix(columns: FleetColumn[]): FleetRow[] {
     .map((key) => buildFleetRow(key, columns));
 }
 
+/**
+ * `buildMcpServerPatch`'s remote branch never patches top-level `headers`
+ * (only auth's own header-strategy headers, which is a separate nested
+ * field) — it leaves raw protocol headers to the editor's own read-only
+ * carry-forward. A fleet replace has no such carry-forward, so build the
+ * full string-map diff here: changed/new keys take the new value, keys
+ * dropped from the edited server become null.
+ */
+const buildHeadersReplacementPatch = (
+  previous: Record<string, string> | null | undefined,
+  next: Record<string, string>,
+): Record<string, string | null> => {
+  const patch: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(next)) {
+    if (value !== REDACTED_MCP_SECRET_VALUE) patch[key] = value;
+  }
+  for (const key of Object.keys(previous ?? {})) {
+    if (!(key in next)) patch[key] = null;
+  }
+  return patch;
+};
+
 // @spec PRJ-603 — Replacement patch removes stale fields on transport switch
 export function buildReplacementPatch(
   previous: MCPServer,
@@ -158,12 +181,26 @@ export function buildReplacementPatch(
   >;
   const canonical = toCanonicalMcpServer(edited) as Record<string, unknown>;
   const result: Record<string, unknown> = { ...patch };
+
+  const canonicalHeaders = canonical.headers as
+    | Record<string, string>
+    | undefined;
+  if (canonicalHeaders) {
+    const previousHeaders =
+      previous.transport === "stdio" ? undefined : previous.headers;
+    result.headers = buildHeadersReplacementPatch(
+      previousHeaders,
+      canonicalHeaders,
+    );
+  }
+
   for (const key of Object.keys(previous as Record<string, unknown>)) {
     if (!(key in canonical) && !(key in result)) result[key] = null;
   }
   return result as MCPServerPatch;
 }
 
+// @spec PRJ-603 — Push an entry to servers
 export function hasRedactedSecret(server: MCPServerConfig): boolean {
   return hasRedactedMcpSecretLeaf({
     env: server.env,
