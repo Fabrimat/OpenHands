@@ -43161,5 +43161,22 @@
     "uk": "Заповніть усі поля з секретами перед надсиланням — замаскований плейсхолдер ніколи не можна надіслати.",
     "zh-CN": "推送前请填写所有密钥字段 — 脱敏占位符永远不能被发送。",
     "zh-TW": "推送前請填寫所有密鑰欄位 — 遮罩後的預留位置永遠不能傳送。"
+  },
+  "MCP$FLEET_PUSH_UNSUPPORTED_AUTH": {
+    "ar": "لا يمكن تعديل نوع المصادقة لهذا الإدخال هنا؛ غيّره في صفحة MCP الخاصة بالخادم.",
+    "ca": "El tipus d'autenticació d'aquesta entrada no es pot editar aquí; canvia'l a la pàgina MCP pròpia del servidor.",
+    "de": "Der Authentifizierungstyp dieses Eintrags kann hier nicht bearbeitet werden; ändern Sie ihn auf der eigenen MCP-Seite des Servers.",
+    "en": "This entry's authentication type can't be edited here; change it on the server's own MCP page.",
+    "es": "El tipo de autenticación de esta entrada no se puede editar aquí; cámbialo en la propia página MCP del servidor.",
+    "fr": "Le type d'authentification de cette entrée ne peut pas être modifié ici ; changez-le sur la page MCP propre au serveur.",
+    "it": "Il tipo di autenticazione di questa voce non può essere modificato qui; cambialo nella pagina MCP dedicata del server.",
+    "ja": "このエントリの認証方式はここでは編集できません。サーバー自身のMCPページで変更してください。",
+    "ko-KR": "이 항목의 인증 방식은 여기서 편집할 수 없습니다. 서버 자체의 MCP 페이지에서 변경하세요.",
+    "no": "Autentiseringstypen for denne oppføringen kan ikke redigeres her; endre den på serverens egen MCP-side.",
+    "pt": "O tipo de autenticação desta entrada não pode ser editado aqui; altere-o na própria página MCP do servidor.",
+    "tr": "Bu girişin kimlik doğrulama türü burada düzenlenemez; sunucunun kendi MCP sayfasından değiştirin.",
+    "uk": "Тип автентифікації цього запису не можна редагувати тут; змініть його на власній сторінці MCP сервера.",
+    "zh-CN": "此条目的身份验证类型无法在此编辑；请在该服务器自己的 MCP 页面上更改。",
+    "zh-TW": "此項目的身分驗證類型無法在此編輯；請在該伺服器自己的 MCP 頁面上變更。"
   }
 }

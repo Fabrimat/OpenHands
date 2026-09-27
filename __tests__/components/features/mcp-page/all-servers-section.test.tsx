@@ -273,6 +273,32 @@ describe("AllServersSection", () => {
     },
   );
 
+  // @spec PRJ-603 — MCPServerForm can't represent "basic" auth (its own
+  // auth-mode dropdown has no such option), so submitting untouched would
+  // send `auth: null` and wipe it on every backend. Disable the row's own
+  // "Push…" instead of relying on the post-submit guard.
+  it('disables "Push…" for a row whose reference has an auth strategy the form can\'t represent', async () => {
+    setRegisteredBackends([backendA, backendB]);
+    setActiveSelection({ backendId: "a" });
+    vi.spyOn(McpFleetService, "getConfig").mockResolvedValue({
+      shared: {
+        transport: "http",
+        url: "https://example.com/mcp",
+        auth: {
+          strategy: "basic",
+          username: "user",
+          password: REDACTED_MCP_SECRET_VALUE,
+        },
+      } as MCPServer,
+    });
+
+    renderSection();
+
+    expect(
+      await screen.findByTestId("mcp-fleet-row-push-shared"),
+    ).toBeDisabled();
+  });
+
   // @spec PRJ-605 — On-demand test
   it("tests a cell on that backend and shows the tool count", async () => {
     setRegisteredBackends([backendA, backendB]);

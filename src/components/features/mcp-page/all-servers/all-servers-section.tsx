@@ -36,6 +36,28 @@ const FIELD_LABEL_KEYS: Record<FingerprintField, I18nKey> = {
   auth_strategy: I18nKey.MCP$FLEET_FIELD_AUTH_STRATEGY,
 };
 
+// @spec PRJ-603 — Auth strategies MCPServerForm's own auth-mode dropdown can
+// display and re-enter (see its RemoteAuthMode union / authMode initializer
+// in mcp-server-form.tsx: oauth2, header, and bearer|api_key share the
+// "bearer" UI mode with the original strategy preserved on submit). Anything
+// else (e.g. "basic") falls through to authMode "none" on prefill, so
+// submitting untouched would send `auth: null` and wipe it on every backend
+// that gets overwritten — the row's own "Push…" is disabled instead.
+const FORM_SUPPORTED_AUTH_STRATEGIES: ReadonlySet<string> = new Set([
+  "bearer",
+  "api_key",
+  "header",
+  "oauth2",
+]);
+
+function hasUnsupportedAuth(server: MCPServer): boolean {
+  if (server.transport === "stdio") return false;
+  const strategy = server.auth?.strategy;
+  return (
+    strategy !== undefined && !FORM_SUPPORTED_AUTH_STRATEGIES.has(strategy)
+  );
+}
+
 interface FleetTableCellProps {
   t: TFunction<"openhands">;
   rowKey: string;
@@ -180,58 +202,70 @@ export function AllServersSection() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.key}>
-                  <td className="px-2 py-1 font-medium align-top">{row.key}</td>
-                  {row.cells.map((cell, i) => {
-                    const { backend } = columns[i];
-                    const resultKey = `${row.key}:${backend.id}`;
-                    return (
-                      <FleetTableCell
-                        key={backend.id}
-                        t={t}
-                        rowKey={row.key}
-                        cell={cell}
-                        backend={backend}
-                        result={testResults[resultKey]}
-                        isTestPending={testMutation.isPending}
-                        onTest={(server) =>
-                          testMutation.mutate(
-                            { backend, key: row.key, stored: server },
-                            {
-                              onSuccess: (result) =>
-                                setTestResults((prev) => ({
-                                  ...prev,
-                                  [resultKey]: result,
-                                })),
-                            },
-                          )
-                        }
-                      />
-                    );
-                  })}
-                  <td className="px-2 py-1 align-top">
-                    <div className="flex gap-2">
-                      <BrandButton
-                        type="button"
-                        variant="secondary"
-                        testId={`mcp-fleet-row-push-${row.key}`}
-                        onClick={() => handlePushRow(row)}
-                      >
-                        {t(I18nKey.MCP$FLEET_PUSH_ROW)}
-                      </BrandButton>
-                      <BrandButton
-                        type="button"
-                        variant="secondary"
-                        testId={`mcp-fleet-row-remove-${row.key}`}
-                        onClick={() => setRemoveRow(row)}
-                      >
-                        {t(I18nKey.MCP$FLEET_REMOVE_ROW)}
-                      </BrandButton>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {rows.map((row) => {
+                const pushDisabled = hasUnsupportedAuth(row.reference);
+                const pushDisabledReason = pushDisabled
+                  ? t(I18nKey.MCP$FLEET_PUSH_UNSUPPORTED_AUTH)
+                  : undefined;
+                return (
+                  <tr key={row.key}>
+                    <td className="px-2 py-1 font-medium align-top">
+                      {row.key}
+                    </td>
+                    {row.cells.map((cell, i) => {
+                      const { backend } = columns[i];
+                      const resultKey = `${row.key}:${backend.id}`;
+                      return (
+                        <FleetTableCell
+                          key={backend.id}
+                          t={t}
+                          rowKey={row.key}
+                          cell={cell}
+                          backend={backend}
+                          result={testResults[resultKey]}
+                          isTestPending={testMutation.isPending}
+                          onTest={(server) =>
+                            testMutation.mutate(
+                              { backend, key: row.key, stored: server },
+                              {
+                                onSuccess: (result) =>
+                                  setTestResults((prev) => ({
+                                    ...prev,
+                                    [resultKey]: result,
+                                  })),
+                              },
+                            )
+                          }
+                        />
+                      );
+                    })}
+                    <td className="px-2 py-1 align-top">
+                      <div className="flex gap-2">
+                        <span title={pushDisabledReason}>
+                          <BrandButton
+                            type="button"
+                            variant="secondary"
+                            testId={`mcp-fleet-row-push-${row.key}`}
+                            onClick={() => handlePushRow(row)}
+                            isDisabled={pushDisabled}
+                            ariaLabel={pushDisabledReason}
+                          >
+                            {t(I18nKey.MCP$FLEET_PUSH_ROW)}
+                          </BrandButton>
+                        </span>
+                        <BrandButton
+                          type="button"
+                          variant="secondary"
+                          testId={`mcp-fleet-row-remove-${row.key}`}
+                          onClick={() => setRemoveRow(row)}
+                        >
+                          {t(I18nKey.MCP$FLEET_REMOVE_ROW)}
+                        </BrandButton>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
