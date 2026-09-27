@@ -376,3 +376,16 @@ turning it on:
       run, or the prompt-create endpoint does not accept the cron trigger
       directly, stop and revise the spec before enabling the supervisor on
       any other server.
+   6. Also verify the reconciliation round-trip: in the **Supervisore**
+      section, enable that server's row and click **Sync now** twice in a
+      row with nothing else changed — the row should read `synced` both
+      times (no second update sent), confirming the trigger and timezone the
+      automation service returns match exactly what agent-canvas sent
+      (spike Q4).
+4. **Changing the primary server** does not disable the old primary's
+   summary automation — its `Supervisore — riepilogo` automation stays
+   enabled there until you disable it by hand.
+5. **A hand-made automation named `Supervisore — <label>`** (for example one
+   created from the spike's copied prompt) is adopted, not left alone: the
+   next sync will disable it unless its name matches that server's current
+   label exactly.

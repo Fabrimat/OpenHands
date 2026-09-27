@@ -126,7 +126,11 @@
         "src/hooks/query/use-projects.ts",
         "src/hooks/query/use-project-data.ts",
         "src/utils/project-matching.ts",
-        "src/types/project.ts"
+        "src/types/project.ts",
+        "src/types/supervisor.ts",
+        "src/utils/supervisor-*.ts",
+        "src/hooks/query/use-supervisor.ts",
+        "src/api/automation-service/automation-service.api.ts"
       ],
       "tests": ["projects"]
     }
