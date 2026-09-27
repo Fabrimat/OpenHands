@@ -11,6 +11,8 @@ every project monitored.
 | 3 | Supervisor agent (federated, autonomy B) | Spec: [`projects-supervisor.md`](projects-supervisor.md) |
 | 4 | Borg backups | Not designed |
 | 5 | Project file storage (S3-compatible, agent-facing) | Not designed |
+| 6 | Centralized memory (basic-memory) | Not designed |
+| 7 | Centralized MCP (metamcp) | Not designed |
 
 ## Phase 2: Multi-server dashboard
 
@@ -66,6 +68,24 @@ Per-project file storage beyond the git repo, used mainly by agents (specs, inpu
 - Credentials: per-project or per-server scoped keys stored as agent-server secrets, never in `misc_settings`.
 - Include the bucket in Borg backups (phase 4), or rely on provider versioning.
 - Open questions: MinIO self-hosted vs. managed provider; mount (rclone) vs. CLI-only access; how agents learn the path (e.g. injected into the conversation's system suffix, like `<RUNTIME_SERVICES>`).
+
+## Phase 6: Centralized memory (basic-memory)
+
+One memory store shared by every agent on every server, managed from the canvas.
+
+- The user already runs basic-memory; every agent-server points at the same instance over MCP (ideally through metamcp, phase 7), so agents on any server read/write the same project knowledge.
+- Canvas: a memory page to browse/search notes, filtered per project (e.g. a basic-memory project or folder per canvas project, referenced from `Project`).
+- Optional: inject a pointer to the project's memory into conversation context, like `<RUNTIME_SERVICES>`.
+- Open questions: mapping canvas project ↔ basic-memory project/folder; read-only vs. editable in the canvas; whether the supervisor writes its daily status to memory as well as (or instead of) the tracker.
+
+## Phase 7: Centralized MCP (metamcp)
+
+Configure MCP servers once, in one place, instead of on every agent-server.
+
+- The user already runs metamcp; each agent-server's MCP config points at a metamcp endpoint (namespace per server or per project).
+- Canvas: one view of which MCP servers/namespaces each agent-server uses and whether they respond; push the metamcp endpoint to every registered server's MCP settings in one action.
+- Side benefit: gives the supervisor's tracker MCP (spike Q2) a single shared endpoint on all servers.
+- Open questions: metamcp API for listing namespaces/tools (read-only first); credential custody for the metamcp endpoint key (agent-server secrets, never `misc_settings`).
 
 ## Remaining items / ideas
 

@@ -24,8 +24,7 @@ import { modalTitleLgClassName } from "#/utils/modal-classes";
 import { cn } from "#/utils/utils";
 import type { Project, ProjectLocation } from "#/types/project";
 import type { TrackerLink, TrackerProviderId } from "#/types/tracker";
-import { TRACKER_PROVIDERS } from "#/utils/trackers";
-import { isHttpUrl } from "#/utils/url";
+import { TRACKER_PROVIDERS, isValidTrackerLink } from "#/utils/trackers";
 import {
   normalizeHost,
   normalizeRepoUrl,
@@ -130,11 +129,14 @@ export function ProjectFormModal({
       const ref = url
         ? TRACKER_PROVIDERS[trackerProvider].refFromUrl(url)
         : null;
-      if (!url || !isHttpUrl(url) || !ref) {
+      const candidate = ref ? { provider: trackerProvider, ref, url } : null;
+      // Same contract as the read path, so a saved tracker is never rejected
+      // (and its project dropped) on the next load.
+      if (!candidate || !isValidTrackerLink(candidate)) {
         setError(t(I18nKey.PROJECTS$TRACKER_URL_INVALID));
         return;
       }
-      tracker = { provider: trackerProvider, ref, url };
+      tracker = candidate;
     }
     onSubmit({
       id: initial?.id ?? uuidv4(),
