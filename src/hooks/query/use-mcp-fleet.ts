@@ -70,6 +70,7 @@ export function usePushMcpToBackends() {
       targets: { backend: Backend; previous: MCPServer | undefined }[];
       server: MCPServerConfig;
     }) => pushToBackends(targets, server),
+    gcTime: 0, // secrets in variables
     onSettled: () => invalidateFleetQueries(queryClient),
   });
 }
