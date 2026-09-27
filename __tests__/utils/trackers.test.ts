@@ -33,9 +33,9 @@ describe("TRACKER_PROVIDERS.clickup", () => {
   });
 
   it("derives the ref from the last URL path segment", () => {
-    expect(clickup.refFromUrl("https://app.clickup.com/12345678/v/li/900123")).toBe(
-      "900123",
-    );
+    expect(
+      clickup.refFromUrl("https://app.clickup.com/12345678/v/li/900123"),
+    ).toBe("900123");
   });
 
   it("returns null when no ref can be derived", () => {
@@ -61,6 +61,10 @@ describe("isValidTrackerLink", () => {
   it.each([
     ["unknown provider", { provider: "bogus", ref: "ABC123" }],
     ["invalid ref shape", { provider: "clickup", ref: "abc-123" }],
+    [
+      "a non-http(s) url",
+      { provider: "clickup", ref: "ABC123", url: "javascript:alert(1)" },
+    ],
     ["non-object", "not an object"],
     ["null", null],
   ])("rejects %s", (_name, v) => {

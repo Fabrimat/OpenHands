@@ -1,4 +1,5 @@
 import type { TrackerLink, TrackerProviderId } from "#/types/tracker";
+import { isHttpUrl } from "./url";
 
 // @spec PRJ-003, PRJ-209 — All provider-specific tracker knowledge (display
 // name, URL->ref parsing, ref validation, MCP name, and the prompt fragments
@@ -61,9 +62,9 @@ export function isTrackerProviderId(v: unknown): v is TrackerProviderId {
 // @spec PRJ-003, PRJ-201 — Shared validator for `Project.tracker` and
 // `SupervisorSettings.summary_tracker`: an unknown provider id or a ref that
 // fails that provider's shape guard makes the whole tracker invalid. `url`,
-// when present, only needs to be a string here — the http(s)-only rule is a
-// form-level concern (see `isHttpUrl` in `#/types/project.ts`), not part of
-// read-time data validity.
+// when present, must be `http:`/`https:` — read-time defense against a
+// hostile/malformed persisted `url` (e.g. `javascript:...`) that would
+// otherwise render as an `<a href>` in project-card/detail.
 export function isValidTrackerLink(v: unknown): v is TrackerLink {
   if (typeof v !== "object" || v === null) return false;
   const t = v as Partial<TrackerLink>;
@@ -71,6 +72,6 @@ export function isValidTrackerLink(v: unknown): v is TrackerLink {
     isTrackerProviderId(t.provider) &&
     typeof t.ref === "string" &&
     TRACKER_PROVIDERS[t.provider].isValidRef(t.ref) &&
-    (t.url === undefined || typeof t.url === "string")
+    (t.url === undefined || (typeof t.url === "string" && isHttpUrl(t.url)))
   );
 }

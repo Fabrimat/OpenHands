@@ -10,6 +10,9 @@ import type { TrackerLink } from "#/types/tracker";
 // deep-merged write deletes it server-side instead of leaving it to linger.
 export const LEGACY_SUMMARY_TRACKER_KEY = "summary_clickup_list_id";
 
+// Name of the pre-tracker-abstraction `Project` field that `tracker` replaced.
+export const LEGACY_PROJECT_TRACKER_KEY = "clickup";
+
 interface LegacyClickup {
   list_id: string;
   url: string;
@@ -22,23 +25,24 @@ function isLegacyClickup(v: unknown): v is LegacyClickup {
 }
 
 // Project: legacy `clickup: {list_id, url}` -> `tracker: {provider, ref, url}`.
-// If `tracker` is already present it wins and `clickup` is dropped either way,
-// so a save never resurrects the legacy key.
+// If `tracker` is already present it wins and the legacy key is dropped
+// either way, so a save never resurrects it.
 export function normalizeProjectTracker(raw: unknown): unknown {
   if (typeof raw !== "object" || raw === null) return raw;
-  const obj = raw as Record<string, unknown>;
-  if (!("clickup" in obj)) return raw;
-  const { clickup, ...rest } = obj;
-  if (rest.tracker !== undefined) return rest;
-  if (isLegacyClickup(clickup)) {
+  const obj = { ...(raw as Record<string, unknown>) };
+  if (!(LEGACY_PROJECT_TRACKER_KEY in obj)) return raw;
+  const legacy = obj[LEGACY_PROJECT_TRACKER_KEY];
+  delete obj[LEGACY_PROJECT_TRACKER_KEY];
+  if (obj.tracker !== undefined) return obj;
+  if (isLegacyClickup(legacy)) {
     const tracker: TrackerLink = {
       provider: "clickup",
-      ref: clickup.list_id,
-      url: clickup.url,
+      ref: legacy.list_id,
+      url: legacy.url,
     };
-    return { ...rest, tracker };
+    return { ...obj, tracker };
   }
-  return rest;
+  return obj;
 }
 
 // Supervisor settings: the legacy list-id field (string, `""` = no summary,

@@ -22,9 +22,10 @@ import {
 } from "#/utils/form-control-classes";
 import { modalTitleLgClassName } from "#/utils/modal-classes";
 import { cn } from "#/utils/utils";
-import { isHttpUrl, type Project, type ProjectLocation } from "#/types/project";
+import type { Project, ProjectLocation } from "#/types/project";
 import type { TrackerLink, TrackerProviderId } from "#/types/tracker";
 import { TRACKER_PROVIDERS } from "#/utils/trackers";
+import { isHttpUrl } from "#/utils/url";
 import {
   normalizeHost,
   normalizeRepoUrl,

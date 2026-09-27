@@ -22,16 +22,6 @@ function isValidLocation(v: unknown): v is ProjectLocation {
   return typeof l.host === "string" && typeof l.path === "string";
 }
 
-// Minor — Tracker URL: only `http:`/`https:` links are accepted by the
-// project form (defense against malformed input).
-export function isHttpUrl(value: string): boolean {
-  try {
-    return ["http:", "https:"].includes(new URL(value).protocol);
-  } catch {
-    return false;
-  }
-}
-
 export function isValidProject(v: unknown): v is Project {
   if (typeof v !== "object" || v === null) return false;
   const p = v as Partial<Project>;
