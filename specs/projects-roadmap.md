@@ -11,7 +11,7 @@ every project monitored.
 | 3 | Supervisor agent (federated, autonomy B) | Spec: [`projects-supervisor.md`](projects-supervisor.md) |
 | 4 | Borg backups | Not designed |
 | 5 | Project file storage (S3-compatible, agent-facing) | Not designed |
-| 6 | Centralized MCP management (generic; metamcp as endpoint) | Spec: [`projects-mcp.md`](projects-mcp.md) |
+| 6 | Centralized MCP management (generic; metamcp as endpoint) | Built — spec: [`projects-mcp.md`](projects-mcp.md) |
 | 7 | Centralized memory via MCP (basic-memory through metamcp) | Not designed |
 
 ## Phase 2: Multi-server dashboard

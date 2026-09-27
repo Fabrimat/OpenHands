@@ -391,3 +391,17 @@ Before turning it on:
    created from the spike's copied prompt) is adopted, not left alone: the
    next sync will disable it unless its name matches that server's current
    label exactly.
+
+### Centralized MCP
+
+With two or more local servers registered, the MCP page shows an **All
+servers** section: every server's MCP entries side by side, flagging where an
+entry is missing, disabled or configured differently (secret values are never
+compared). Use **Push to servers…** to configure the same entry — for example
+your metamcp endpoint, or the tracker MCP the supervisor needs — on several
+servers at once. Secrets are typed in the form and sent to each server, which
+encrypts them with its own `OH_SECRET_KEY`; they are never copied between
+servers, so pushing from an existing row asks you to re-enter them.
+Overwriting an OAuth entry means re-authorizing it on each server. Rows whose
+authentication or raw headers the form can't edit must be changed on that
+server's own MCP page. See [`specs/projects-mcp.md`](../specs/projects-mcp.md).
