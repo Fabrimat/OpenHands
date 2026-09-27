@@ -44,3 +44,6 @@ build-fresh/
 # Downloaded Node.js distribution (populated by `npm run download-node` before packaging)
 /resources/node/
 /.playwright-mcp
+
+# graphify knowledge-graph output
+graphify-out/
