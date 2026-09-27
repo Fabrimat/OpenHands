@@ -1,4 +1,5 @@
 import type { TrackerLink } from "#/types/tracker";
+import { isValidTrackerLink } from "./trackers";
 
 // @spec PRJ-003, PRJ-201 — Migrate legacy ClickUp-only persisted shapes to
 // the generic `tracker` / `summary_tracker` fields on READ, so upgrading
@@ -26,7 +27,12 @@ function isLegacyClickup(v: unknown): v is LegacyClickup {
 
 // Project: legacy `clickup: {list_id, url}` -> `tracker: {provider, ref, url}`.
 // If `tracker` is already present it wins and the legacy key is dropped
-// either way, so a save never resurrects it.
+// either way, so a save never resurrects it. A legacy `list_id` was never
+// validated against today's stricter ref shape (old values can contain
+// hyphens, query strings, etc.) — attach the migrated tracker only if it
+// actually validates; otherwise drop it (same as the malformed-shape branch)
+// so the project itself survives instead of being filtered out by
+// `isValidProject` and erased on the next `saveProjects`.
 export function normalizeProjectTracker(raw: unknown): unknown {
   if (typeof raw !== "object" || raw === null) return raw;
   const obj = { ...(raw as Record<string, unknown>) };
@@ -40,14 +46,18 @@ export function normalizeProjectTracker(raw: unknown): unknown {
       ref: legacy.list_id,
       url: legacy.url,
     };
-    return { ...obj, tracker };
+    if (isValidTrackerLink(tracker)) return { ...obj, tracker };
   }
   return obj;
 }
 
 // Supervisor settings: the legacy list-id field (string, `""` = no summary,
 // `null` once a save has cleared it) -> `summary_tracker`. If `summary_tracker`
-// is already present it wins; the legacy key is dropped either way.
+// is already present it wins; the legacy key is dropped either way. A
+// migrated tracker that doesn't validate (same stricter-ref-shape concern as
+// `normalizeProjectTracker`) falls back to `null` rather than invalidating
+// the whole settings object (which would silently reset every other field to
+// its default via the isValidSupervisorSettings guard).
 export function normalizeSupervisorSettingsTracker(raw: unknown): unknown {
   if (typeof raw !== "object" || raw === null) return raw;
   const obj = { ...(raw as Record<string, unknown>) };
@@ -56,7 +66,7 @@ export function normalizeSupervisorSettingsTracker(raw: unknown): unknown {
   if (obj.summary_tracker !== undefined) return obj;
   if (typeof legacy === "string" && legacy !== "") {
     const summary_tracker: TrackerLink = { provider: "clickup", ref: legacy };
-    return { ...obj, summary_tracker };
+    if (isValidTrackerLink(summary_tracker)) return { ...obj, summary_tracker };
   }
   return { ...obj, summary_tracker: null };
 }

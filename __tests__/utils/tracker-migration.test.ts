@@ -34,6 +34,20 @@ describe("normalizeProjectTracker", () => {
     ).toEqual({ id: "1" });
   });
 
+  // @spec PRJ-003 — A legacy `list_id` was never validated against today's
+  // stricter ref shape (e.g. a raw URL segment like "6-1-1" with hyphens).
+  // The project must survive, just without a tracker — not be dropped
+  // entirely by a later `isValidProject` filter (which would erase it from
+  // the server on the next `saveProjects`).
+  it("drops a legacy clickup field whose list_id fails today's ref shape, keeping the project untracked", () => {
+    expect(
+      normalizeProjectTracker({
+        id: "1",
+        clickup: { list_id: "6-1-1", url: "http://x" },
+      }),
+    ).toEqual({ id: "1" });
+  });
+
   it("passes through projects with neither field unchanged", () => {
     const project = { id: "1", name: "App" };
     expect(normalizeProjectTracker(project)).toBe(project);
@@ -52,7 +66,10 @@ describe("normalizeSupervisorSettingsTracker", () => {
         enabled: true,
         summary_clickup_list_id: "LIST1",
       }),
-    ).toEqual({ enabled: true, summary_tracker: { provider: "clickup", ref: "LIST1" } });
+    ).toEqual({
+      enabled: true,
+      summary_tracker: { provider: "clickup", ref: "LIST1" },
+    });
   });
 
   it("maps an empty legacy list id to null", () => {
@@ -91,5 +108,18 @@ describe("normalizeSupervisorSettingsTracker", () => {
       enabled: true,
       summary_tracker: null,
     });
+  });
+
+  // @spec PRJ-201 — A legacy list id that fails today's stricter ref shape
+  // must fall back to `summary_tracker: null` rather than propagate an
+  // invalid tracker that would fail `isValidSupervisorSettings` and reset
+  // every other persisted setting (timezone, servers, ...) to its default.
+  it("falls back to null when the legacy list id fails today's ref shape", () => {
+    expect(
+      normalizeSupervisorSettingsTracker({
+        enabled: true,
+        summary_clickup_list_id: "6-1-1",
+      }),
+    ).toEqual({ enabled: true, summary_tracker: null });
   });
 });

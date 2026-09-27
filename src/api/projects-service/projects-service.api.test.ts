@@ -139,4 +139,21 @@ describe("ProjectsService project tracker migration", () => {
     });
     expect(await ProjectsService.getProjects(primary)).toEqual([]);
   });
+
+  // @spec PRJ-003 — DATA LOSS regression guard: a legacy `list_id` that
+  // fails today's stricter ref shape must keep the project (without a
+  // tracker), not filter it out of the returned list.
+  it("keeps a project whose legacy list_id fails today's ref shape, without a tracker", async () => {
+    getSettings.mockResolvedValue({
+      misc_settings: {
+        projects: [
+          {
+            ...project,
+            [LEGACY_PROJECT_TRACKER_KEY]: { list_id: "6-1-1", url: "http://x" },
+          },
+        ],
+      },
+    });
+    expect(await ProjectsService.getProjects(primary)).toEqual([project]);
+  });
 });

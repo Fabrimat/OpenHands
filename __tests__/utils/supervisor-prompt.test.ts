@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   SUPERVISOR_MARKER,
   buildServerSupervisorPrompt,
+  buildSummaryPrompt,
   projectsForHost,
   supervisorCronSchedule,
 } from "#/utils/supervisor-prompt";
+import { DEFAULT_SUPERVISOR_SETTINGS } from "#/types/supervisor";
 import type { Project } from "#/types/project";
 import type { TrackerLink } from "#/types/tracker";
 
@@ -23,7 +25,10 @@ const web: Project = {
   locations: [{ host: "http://pc1:8000", path: "D:\\web" }],
 };
 
-const summaryList1: TrackerLink = { provider: "clickup", ref: "SUMMARY-LIST-1" };
+const summaryList1: TrackerLink = {
+  provider: "clickup",
+  ref: "SUMMARY-LIST-1",
+};
 
 // @spec PRJ-205 — Staggered daily cron
 describe("supervisorCronSchedule", () => {
@@ -109,5 +114,34 @@ describe("buildServerSupervisorPrompt", () => {
     expect(withoutSummaryTracker).toContain(
       'include them in your finish summary under "Progetti senza tracker"',
     );
+  });
+});
+
+// @spec PRJ-209 — The summary's read instruction must reuse the exact same
+// task title/tag the per-server status fragment writes, so they can't desync.
+describe("buildSummaryPrompt", () => {
+  it("reads the same task titles/tag the ClickUp status fragment writes, and writes the summary task", () => {
+    const settings = {
+      ...DEFAULT_SUPERVISOR_SETTINGS,
+      summary_tracker: summaryList1,
+    };
+    const prompt = buildSummaryPrompt(settings, ["vps1"]);
+    const statusFragment = buildServerSupervisorPrompt("vps1", [app], null);
+    expect(prompt).toContain('"📊 Stato progetto"');
+    expect(prompt).toContain('"📊 Stato — <server>"');
+    expect(prompt).toContain('"supervisor-suggestion"');
+    // Same titles/tag appear (with `<server>` vs. the real label) in what
+    // the status fragment actually writes — proving read and write agree.
+    expect(statusFragment).toContain('"📊 Stato progetto"');
+    expect(statusFragment).toContain("supervisor-suggestion");
+    expect(prompt).toContain('list with id "SUMMARY-LIST-1"');
+    expect(prompt).toContain("ClickUp MCP");
+  });
+
+  it("has no read/write instructions when no summary tracker is configured", () => {
+    const settings = { ...DEFAULT_SUPERVISOR_SETTINGS, summary_tracker: null };
+    const prompt = buildSummaryPrompt(settings, ["vps1"]);
+    expect(prompt).not.toContain("Read, across the workspace");
+    expect(prompt).toContain("No summary tracker is configured");
   });
 });
