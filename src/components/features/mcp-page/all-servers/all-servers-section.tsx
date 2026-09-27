@@ -50,12 +50,21 @@ const FORM_SUPPORTED_AUTH_STRATEGIES: ReadonlySet<string> = new Set([
   "oauth2",
 ]);
 
-function hasUnsupportedAuth(server: MCPServer): boolean {
-  if (server.transport === "stdio") return false;
+// @spec PRJ-603 — Raw top-level `headers` (marketplace installs keep API
+// keys there) are carried read-only by the form, so a redacted value could
+// never be retyped, and stripping them would silently drop the credential on
+// every overwritten backend. Such rows are not pushable from here either.
+// Returns the disabled reason, or null when the row can be pushed.
+function cannotPushFromRow(server: MCPServer): I18nKey | null {
+  if (server.transport === "stdio") return null;
   const strategy = server.auth?.strategy;
-  return (
-    strategy !== undefined && !FORM_SUPPORTED_AUTH_STRATEGIES.has(strategy)
-  );
+  if (strategy !== undefined && !FORM_SUPPORTED_AUTH_STRATEGIES.has(strategy)) {
+    return I18nKey.MCP$FLEET_PUSH_UNSUPPORTED_AUTH;
+  }
+  if (server.headers && Object.keys(server.headers).length > 0) {
+    return I18nKey.MCP$FLEET_PUSH_UNSUPPORTED_HEADERS;
+  }
+  return null;
 }
 
 interface FleetTableCellProps {
@@ -164,16 +173,12 @@ export function AllServersSection() {
   // (buildReplacementPatch then nulls it out) on every backend that gets
   // overwritten.
   //
-  // Two parts are stripped because the form has no control to retype them,
-  // so a redacted value there could never clear `hasRedactedSecret`: raw
-  // top-level `headers` (carried read-only by the form) and server-held
-  // OAuth `auth.state` (tokens, re-emitted verbatim). buildReplacementPatch
-  // nulls both on the targets, same as a top-level push for this name — the
-  // OAuth entry then needs re-authorizing there (see the overwrite note).
+  // Server-held OAuth `auth.state` (tokens, re-emitted verbatim by the form
+  // with no control to retype them) is stripped so a redacted token can't
+  // dead-end `hasRedactedSecret`. buildReplacementPatch nulls it on the
+  // targets, which then need re-authorizing (see the overwrite note).
   const handlePushRow = (row: FleetRow) => {
-    const { headers: _headers, ...prefill } = flattenMcpConfig({
-      [row.key]: row.reference,
-    })[0];
+    const prefill = flattenMcpConfig({ [row.key]: row.reference })[0];
     if (prefill.auth?.strategy === "oauth2") {
       const { state: _state, ...auth } = prefill.auth;
       prefill.auth = auth;
@@ -224,9 +229,10 @@ export function AllServersSection() {
             </thead>
             <tbody>
               {rows.map((row) => {
-                const pushDisabled = hasUnsupportedAuth(row.reference);
-                const pushDisabledReason = pushDisabled
-                  ? t(I18nKey.MCP$FLEET_PUSH_UNSUPPORTED_AUTH)
+                const pushDisabledKey = cannotPushFromRow(row.reference);
+                const pushDisabled = pushDisabledKey !== null;
+                const pushDisabledReason = pushDisabledKey
+                  ? t(pushDisabledKey)
                   : undefined;
                 return (
                   <tr key={row.key}>

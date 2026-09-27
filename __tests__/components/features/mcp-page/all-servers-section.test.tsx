@@ -322,7 +322,9 @@ describe("AllServersSection", () => {
     });
   });
 
-  it("row-pushes a remote entry with redacted raw headers without sending headers", async () => {
+  // @spec PRJ-603 — Raw headers can't be retyped in the form and stripping
+  // them would drop the credential, so the row's "Push…" is disabled.
+  it('disables "Push…" for a row whose reference has raw top-level headers', async () => {
     setRegisteredBackends([backendA, backendB]);
     setActiveSelection({ backendId: "a" });
     vi.spyOn(McpFleetService, "getConfig").mockResolvedValue({
@@ -332,23 +334,15 @@ describe("AllServersSection", () => {
         headers: { Authorization: REDACTED_MCP_SECRET_VALUE },
       } as MCPServer,
     });
-    const pushSpy = vi
-      .spyOn(McpFleetService, "push")
-      .mockResolvedValue(undefined);
 
     renderSection();
-    fireEvent.click(await screen.findByTestId("mcp-fleet-row-push-shared"));
-    const modal = await screen.findByTestId("mcp-fleet-push-modal");
-    fireEvent.click(within(modal).getByTestId("submit-button"));
-    fireEvent.click(
-      await screen.findByTestId("mcp-fleet-overwrite-confirm-button"),
-    );
 
-    await waitFor(() => expect(pushSpy).toHaveBeenCalledTimes(2));
-    expect(pushSpy.mock.calls[0][1]).not.toHaveProperty("headers");
-    expect(
-      screen.queryByTestId("mcp-fleet-overwrite-oauth-note"),
-    ).not.toBeInTheDocument();
+    const button = await screen.findByTestId("mcp-fleet-row-push-shared");
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute(
+      "aria-label",
+      "MCP$FLEET_PUSH_UNSUPPORTED_HEADERS",
+    );
   });
 
   // @spec PRJ-601 — A slow backend neither hides the matrix nor stays
