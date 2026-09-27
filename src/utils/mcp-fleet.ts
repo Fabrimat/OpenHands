@@ -148,6 +148,9 @@ export function buildFleetMatrix(columns: FleetColumn[]): FleetRow[] {
     .map((key) => buildFleetRow(key, columns));
 }
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+
 /**
  * `buildMcpServerPatch`'s remote branch never patches top-level `headers`
  * (only auth's own header-strategy headers, which is a separate nested
@@ -170,15 +173,50 @@ const buildHeadersReplacementPatch = (
   return patch;
 };
 
+/**
+ * Deep RFC 7386-style replacement: every key present in `next` (at any
+ * depth) takes its `next` value; every key present only in `previous`
+ * becomes null, at any depth. Used for `auth` instead of
+ * `buildMcpServerPatch`'s own auth handling, which is designed for the
+ * single-server editor's incremental diffs — it deliberately *throws*
+ * (`MCP_HEADER_REMOVAL_ERROR`) if a header-strategy credential drops one
+ * header while keeping others, because that editor has no "clear this one
+ * field" affordance. A fleet push always carries a full, freshly-typed
+ * credential (the redacted placeholder is already blocked by
+ * `hasRedactedSecret` before this runs), so dropping a nested key — an
+ * auth header, an OAuth field, a stale `api_key`/`value` field on a
+ * strategy switch — is legitimate and must not throw.
+ */
+function buildAuthReplacementPatch(previous: unknown, next: unknown): unknown {
+  if (next === REDACTED_MCP_SECRET_VALUE) return undefined;
+  if (Array.isArray(next)) {
+    return hasRedactedMcpSecretLeaf(next) ? undefined : next;
+  }
+  if (!isRecord(next)) return next;
+
+  const previousRecord = isRecord(previous) ? previous : {};
+  const patch: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(next)) {
+    const nested = buildAuthReplacementPatch(previousRecord[key], value);
+    if (nested !== undefined) patch[key] = nested;
+  }
+  for (const key of Object.keys(previousRecord)) {
+    if (!(key in next)) patch[key] = null;
+  }
+  return patch;
+}
+
 // @spec PRJ-603 — Replacement patch removes stale fields on transport switch
 export function buildReplacementPatch(
   previous: MCPServer,
   edited: MCPServerConfig,
 ): MCPServerPatch {
-  const patch = buildMcpServerPatch(previous, edited) as Record<
-    string,
-    unknown
-  >;
+  // Auth is always replaced independently below, so buildMcpServerPatch
+  // never sees edited.auth and can never hit its header-removal guard.
+  const patch = buildMcpServerPatch(previous, {
+    ...edited,
+    auth: undefined,
+  }) as Record<string, unknown>;
   const canonical = toCanonicalMcpServer(edited) as Record<string, unknown>;
   const result: Record<string, unknown> = { ...patch };
 
@@ -192,6 +230,12 @@ export function buildReplacementPatch(
       previousHeaders,
       canonicalHeaders,
     );
+  }
+
+  if (canonical.auth) {
+    const previousAuth =
+      previous.transport === "stdio" ? undefined : previous.auth;
+    result.auth = buildAuthReplacementPatch(previousAuth, canonical.auth);
   }
 
   for (const key of Object.keys(previous as Record<string, unknown>)) {

@@ -308,6 +308,55 @@ describe("buildReplacementPatch", () => {
         url: "https://mcp.example/a",
       },
     },
+    {
+      name: "header auth → header auth with one of several headers dropped",
+      previous: remoteServer({
+        auth: {
+          strategy: "header",
+          headers: { A: "1", B: "2", C: "3" },
+        },
+      } as Partial<MCPServer>),
+      edited: {
+        id: "x",
+        type: "shttp",
+        name: "x",
+        url: "https://mcp.example/a",
+        auth: {
+          strategy: "header",
+          headers: { A: "1-new", C: "3" },
+        },
+      },
+    },
+    {
+      name: "api_key → bearer (strategy switch, stale api_key field removed)",
+      previous: remoteServer({
+        auth: { strategy: "api_key", header_name: "X-Api-Key", value: "old" },
+      } as Partial<MCPServer>),
+      edited: {
+        id: "x",
+        type: "shttp",
+        name: "x",
+        url: "https://mcp.example/a",
+        auth: { strategy: "bearer", value: "new-token" },
+      },
+    },
+    {
+      name: "oauth2 → none",
+      previous: remoteServer({
+        auth: {
+          strategy: "oauth2",
+          authentication: { type: "oauth", client_id: "abc" },
+          state: { tokens: { access_token: "abc" } },
+        },
+      } as Partial<MCPServer>),
+      edited: {
+        id: "x",
+        type: "shttp",
+        name: "x",
+        url: "https://mcp.example/a",
+        auth: { strategy: "none" },
+      },
+    },
   ])(
     "$name: merge(previous, patch) equals the canonical edited server",
     ({ previous, edited }) => {
