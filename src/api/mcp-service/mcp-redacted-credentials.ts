@@ -6,7 +6,7 @@ import {
   REDACTED_MCP_SECRET_VALUE,
 } from "#/utils/mcp-config";
 
-type StoredMcpServer = {
+export type StoredMcpServer = {
   url?: unknown;
   transport?: unknown;
   env?: unknown;
@@ -15,6 +15,11 @@ type StoredMcpServer = {
 };
 
 type StoredMcpConfig = Record<string, StoredMcpServer>;
+
+/** Loads the stored (encrypted) MCP server for a given config off some backend. */
+export type StoredMcpServerLoader = (
+  server: MCPServerConfig,
+) => Promise<StoredMcpServer | undefined>;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
@@ -80,9 +85,15 @@ async function fetchEncryptedStoredServer(
  * env/header/OAuth state value so a connectivity test can exercise the real
  * credential without exposing plaintext in the browser. Persistence never
  * calls this helper; sparse settings patches omit unchanged secrets.
+ *
+ * @param loadStoredServer - Defaults to reading the *active* backend's own
+ *   encrypted settings. The MCP fleet ("All servers") view passes a loader
+ *   scoped to a different backend so a test on that backend substitutes
+ *   from that backend's stored credential instead.
  */
 export async function substituteRedactedMcpCredentials(
   server: MCPServerConfig,
+  loadStoredServer: StoredMcpServerLoader = fetchEncryptedStoredServer,
 ): Promise<MCPServerConfig> {
   const redactedStdioEnv =
     server.type === "stdio" && hasRedactedValue(server.env);
@@ -98,7 +109,7 @@ export async function substituteRedactedMcpCredentials(
   }
 
   try {
-    const stored = await fetchEncryptedStoredServer(server);
+    const stored = await loadStoredServer(server);
     if (!stored) return server;
 
     if (redactedStdioEnv) {

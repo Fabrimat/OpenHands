@@ -79,6 +79,13 @@ export const PLUGINS_QUERY_KEYS = {
   local: ["plugins-local"] as const,
 } as const;
 
+// @spec PRJ-601 — All-servers MCP view
+export const MCP_FLEET_QUERY_KEYS = {
+  all: ["mcp-fleet"] as const,
+  config: (backendId: string, revision: number) =>
+    ["mcp-fleet", "config", backendId, revision] as const,
+} as const;
+
 export const CANVAS_EXTENSIONS_QUERY_KEYS = {
   all: ["canvas-extensions"] as const,
   installed: (

@@ -16,7 +16,10 @@ import type {
   MCPServerConfig,
 } from "#/types/mcp-server";
 import { redactMcpSecrets } from "#/utils/redact-mcp-secrets";
-import { substituteRedactedMcpCredentials } from "./mcp-redacted-credentials";
+import {
+  substituteRedactedMcpCredentials,
+  type StoredMcpServerLoader,
+} from "./mcp-redacted-credentials";
 
 const OAUTH_MCP_TEST_TIMEOUT_SECONDS = 120;
 
@@ -46,12 +49,21 @@ function getMcpTestTimeout(server: MCPServerConfig): number | undefined {
   return OAUTH_MCP_TEST_TIMEOUT_SECONDS;
 }
 
-async function buildMcpTestRequest(server: MCPServerConfig): Promise<{
+// Exported (backend-parameterized) so the MCP fleet service can run a test
+// against a specific backend by passing a loader scoped to that backend's
+// own encrypted settings, instead of always reading the active backend's.
+export async function buildMcpTestRequest(
+  server: MCPServerConfig,
+  loadStoredServer?: StoredMcpServerLoader,
+): Promise<{
   request: AgentServerMCPTestRequest;
   substituted: MCPServerConfig;
 }> {
   const validation = getCredentialValidationForServer(server);
-  const substituted = await substituteRedactedMcpCredentials(server);
+  const substituted = await substituteRedactedMcpCredentials(
+    server,
+    loadStoredServer,
+  );
   const serverSpec = toMcpServer(substituted);
   const timeout = getMcpTestTimeout(server);
   return {
@@ -97,7 +109,7 @@ function redactMcpTestResponse(
  * written for) must degrade to a connectivity-only success, not be
  * misreported as bad credentials.
  */
-function finalizeMcpTestResponse(
+export function finalizeMcpTestResponse(
   result: ExtendedMCPTestResponse,
   validation: CredentialValidation | undefined,
   redactionSources: (MCPServerConfig | undefined)[],
