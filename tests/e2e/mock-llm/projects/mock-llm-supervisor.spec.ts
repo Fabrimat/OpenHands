@@ -142,7 +142,8 @@ test.describe("mock-LLM supervisor — sync creates then disables automations", 
             run_time: "08:00",
             summary_time: "09:00",
             timeout_seconds: 1800,
-            summary_clickup_list_id: "",
+            summary_tracker: null,
+            summary_clickup_list_id: null,
             servers: [],
           },
         },
@@ -180,12 +181,18 @@ test.describe("mock-LLM supervisor — sync creates then disables automations", 
     await page.getByTestId("supervisor-panel").locator("summary").click();
     await waitForTestId(page, "supervisor-add-servers");
 
-    // ── Add all local servers, fill the summary list id, enable, save ──
+    // ── Add all local servers, choose ClickUp as the summary tracker,
+    //    fill its ref, enable, save ──
     await page.getByTestId("supervisor-add-servers").click();
     await expect(page.getByTestId("supervisor-row-local")).toBeVisible({
       timeout: 10_000,
     });
-    await page.getByTestId("supervisor-summary-list").fill(SUMMARY_LIST_ID);
+    await page
+      .getByTestId("supervisor-summary-tracker")
+      .selectOption("clickup");
+    await page
+      .getByTestId("supervisor-summary-tracker-ref")
+      .fill(SUMMARY_LIST_ID);
     // The switch's checkbox input is visually hidden (native `hidden`
     // attribute); click the wrapping <label> so the browser's native
     // label-forwards-click-to-control behavior toggles it.

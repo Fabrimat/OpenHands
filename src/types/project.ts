@@ -1,4 +1,7 @@
 // @spec PRJ-001 — Projects persist on the primary server
+import type { TrackerLink } from "./tracker";
+import { isValidTrackerLink } from "#/utils/trackers";
+
 export interface ProjectLocation {
   host: string;
   path: string;
@@ -9,7 +12,7 @@ export interface Project {
   name: string;
   repo_url: string;
   locations: ProjectLocation[];
-  clickup?: { list_id: string; url: string };
+  tracker?: TrackerLink;
   notes?: string;
 }
 
@@ -19,24 +22,14 @@ function isValidLocation(v: unknown): v is ProjectLocation {
   return typeof l.host === "string" && typeof l.path === "string";
 }
 
-// Minor — ClickUp URL: only `http:`/`https:` links are accepted, both here
-// (defense against malformed persisted data) and by the project form.
+// Minor — Tracker URL: only `http:`/`https:` links are accepted by the
+// project form (defense against malformed input).
 export function isHttpUrl(value: string): boolean {
   try {
     return ["http:", "https:"].includes(new URL(value).protocol);
   } catch {
     return false;
   }
-}
-
-function isValidClickup(v: unknown): v is NonNullable<Project["clickup"]> {
-  if (typeof v !== "object" || v === null) return false;
-  const c = v as Partial<NonNullable<Project["clickup"]>>;
-  return (
-    typeof c.list_id === "string" &&
-    typeof c.url === "string" &&
-    isHttpUrl(c.url)
-  );
 }
 
 export function isValidProject(v: unknown): v is Project {
@@ -49,6 +42,6 @@ export function isValidProject(v: unknown): v is Project {
     typeof p.repo_url === "string" &&
     Array.isArray(p.locations) &&
     p.locations.every(isValidLocation) &&
-    (p.clickup === undefined || isValidClickup(p.clickup))
+    (p.tracker === undefined || isValidTrackerLink(p.tracker))
   );
 }

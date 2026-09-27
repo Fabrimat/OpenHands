@@ -77,7 +77,7 @@ describe("ProjectsList", () => {
       run_time: "08:00",
       summary_time: "09:00",
       timeout_seconds: 1800,
-      summary_clickup_list_id: "",
+      summary_tracker: null,
       servers: [],
     });
     vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({
@@ -165,8 +165,8 @@ describe("ProjectsList", () => {
     ).toBeInTheDocument();
   });
 
-  // Final-review fix — ClickUp URL: only http:/https: links are accepted
-  it("rejects a non-http(s) ClickUp URL", async () => {
+  // Final-review fix — Tracker URL: only http:/https: links are accepted
+  it("rejects a non-http(s) tracker URL", async () => {
     vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([]);
     // `vi.spyOn` re-wraps an already-mocked method in place, so an earlier
     // test's call history on this shared spy would otherwise leak in here.
@@ -184,16 +184,58 @@ describe("ProjectsList", () => {
       "github.com/fab/app",
     );
     await user.type(screen.getByTestId("project-form-path-0"), "/srv/app");
+    await user.selectOptions(
+      screen.getByTestId("project-form-tracker"),
+      "clickup",
+    );
     await user.type(
-      screen.getByTestId("project-form-clickup"),
+      screen.getByTestId("project-form-tracker-url"),
       "javascript:alert(1)",
     );
     await user.click(screen.getByTestId("project-form-submit"));
 
     expect(
-      await screen.findByText(I18nKey.PROJECTS$CLICKUP_URL_INVALID),
+      await screen.findByText(I18nKey.PROJECTS$TRACKER_URL_INVALID),
     ).toBeInTheDocument();
     expect(save).not.toHaveBeenCalled();
+  });
+
+  // @spec PRJ-003 — Choosing a tracker + URL saves the derived `tracker` link
+  it("saves a tracker link when a provider and URL are chosen", async () => {
+    vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([]);
+    const save = vi
+      .spyOn(ProjectsService, "saveProjects")
+      .mockReset()
+      .mockResolvedValue();
+    const user = userEvent.setup();
+    renderList();
+
+    await user.click(await screen.findByTestId("projects-new"));
+    await user.type(screen.getByTestId("project-form-name"), "App");
+    await user.type(
+      screen.getByTestId("project-form-repo"),
+      "github.com/fab/app",
+    );
+    await user.type(screen.getByTestId("project-form-path-0"), "/srv/app");
+    await user.selectOptions(
+      screen.getByTestId("project-form-tracker"),
+      "clickup",
+    );
+    await user.type(
+      screen.getByTestId("project-form-tracker-url"),
+      "https://app.clickup.com/1/v/li/900123",
+    );
+    await user.click(screen.getByTestId("project-form-submit"));
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ id: "p" }), [
+      expect.objectContaining({
+        tracker: {
+          provider: "clickup",
+          ref: "900123",
+          url: "https://app.clickup.com/1/v/li/900123",
+        },
+      }),
+    ]);
   });
 
   // @spec PRJ-206 — Auto re-sync uses freshly-saved data, not pre-save state
@@ -217,7 +259,7 @@ describe("ProjectsList", () => {
       run_time: "08:00",
       summary_time: "09:00",
       timeout_seconds: 1800,
-      summary_clickup_list_id: "",
+      summary_tracker: null,
       servers: [{ host: primary.host, label: "vps1", enabled: true }],
     });
     vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({

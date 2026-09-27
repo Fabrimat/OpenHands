@@ -23,6 +23,8 @@ import {
 import { modalTitleLgClassName } from "#/utils/modal-classes";
 import { cn } from "#/utils/utils";
 import { isHttpUrl, type Project, type ProjectLocation } from "#/types/project";
+import type { TrackerLink, TrackerProviderId } from "#/types/tracker";
+import { TRACKER_PROVIDERS } from "#/utils/trackers";
 import {
   normalizeHost,
   normalizeRepoUrl,
@@ -73,8 +75,11 @@ export function ProjectFormModal({
   const defaultLocalHost = normalizeHost(defaultLocalBackend?.host ?? "");
   const [name, setName] = React.useState(initial?.name ?? "");
   const [repoUrl, setRepoUrl] = React.useState(initial?.repo_url ?? "");
-  const [clickupUrl, setClickupUrl] = React.useState(
-    initial?.clickup?.url ?? "",
+  const [trackerProvider, setTrackerProvider] = React.useState<
+    TrackerProviderId | ""
+  >(initial?.tracker?.provider ?? "");
+  const [trackerUrl, setTrackerUrl] = React.useState(
+    initial?.tracker?.url ?? "",
   );
   const [notes, setNotes] = React.useState(initial?.notes ?? "");
   const [locations, setLocations] = React.useState<ProjectLocation[]>(
@@ -116,24 +121,26 @@ export function ProjectFormModal({
       setError(t(I18nKey.PROJECTS$REQUIRED));
       return;
     }
-    // Minor — ClickUp URL: only accept http:/https: links.
-    if (clickupUrl.trim() && !isHttpUrl(clickupUrl.trim())) {
-      setError(t(I18nKey.PROJECTS$CLICKUP_URL_INVALID));
-      return;
+    // Minor — Tracker URL: only accept http:/https: links, and only if the
+    // provider can derive a valid ref from it.
+    let tracker: TrackerLink | undefined;
+    if (trackerProvider) {
+      const url = trackerUrl.trim();
+      const ref = url
+        ? TRACKER_PROVIDERS[trackerProvider].refFromUrl(url)
+        : null;
+      if (!url || !isHttpUrl(url) || !ref) {
+        setError(t(I18nKey.PROJECTS$TRACKER_URL_INVALID));
+        return;
+      }
+      tracker = { provider: trackerProvider, ref, url };
     }
     onSubmit({
       id: initial?.id ?? uuidv4(),
       name: name.trim(),
       repo_url: normalizeRepoUrl(repoUrl),
       locations: cleaned,
-      ...(clickupUrl.trim()
-        ? {
-            clickup: {
-              url: clickupUrl.trim(),
-              list_id: clickupUrl.trim().split("/").filter(Boolean).pop() ?? "",
-            },
-          }
-        : {}),
+      ...(tracker ? { tracker } : {}),
       ...(notes.trim() ? { notes: notes.trim() } : {}),
     });
   };
@@ -254,14 +261,35 @@ export function ProjectFormModal({
               {t(I18nKey.PROJECTS$ADD_LOCATION)}
             </BrandButton>
           </fieldset>
-          <SettingsInput
-            testId={`${testIdRoot}-clickup`}
-            label={t(I18nKey.PROJECTS$CLICKUP_URL)}
-            type="text"
-            value={clickupUrl}
-            onChange={setClickupUrl}
-            className="w-full"
-          />
+          <label className="flex flex-col gap-2.5 w-full min-w-0">
+            <span className="text-sm">{t(I18nKey.PROJECTS$TRACKER)}</span>
+            <select
+              aria-label={t(I18nKey.PROJECTS$TRACKER)}
+              data-testid={`${testIdRoot}-tracker`}
+              value={trackerProvider}
+              onChange={(e) =>
+                setTrackerProvider(e.target.value as TrackerProviderId | "")
+              }
+              className={formControlSettingsFieldClassName}
+            >
+              <option value="">{t(I18nKey.PROJECTS$TRACKER_NONE)}</option>
+              {Object.entries(TRACKER_PROVIDERS).map(([id, provider]) => (
+                <option key={id} value={id}>
+                  {provider.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          {trackerProvider ? (
+            <SettingsInput
+              testId={`${testIdRoot}-tracker-url`}
+              label={t(I18nKey.PROJECTS$TRACKER_URL)}
+              type="text"
+              value={trackerUrl}
+              onChange={setTrackerUrl}
+              className="w-full"
+            />
+          ) : null}
           <label className="flex flex-col gap-2.5 w-full min-w-0">
             <span className="text-sm">{t(I18nKey.PROJECTS$NOTES)}</span>
             <textarea

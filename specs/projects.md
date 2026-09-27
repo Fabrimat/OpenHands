@@ -19,8 +19,10 @@ backups) live in [`projects-roadmap.md`](projects-roadmap.md).
 
 ## Decisions
 
-- **Project = git repository**, plus optional ClickUp list link and notes.
-  Agents read/write ClickUp tasks through the ClickUp MCP; the app only links.
+- **Project = git repository**, plus an optional tracker link and notes.
+  Agents read/write tracker tasks through that provider's MCP; the app only
+  links. The tracker is pluggable (`provider` + `ref` + optional `url`); see
+  "Tracker providers" below.
 - **Aggregation happens in the browser**: the frontend queries each relevant
   backend in parallel with typed `@openhands/typescript-client` clients built
   from `getAgentServerClientOptions({ host, apiKey })`. No new backend service
@@ -39,7 +41,7 @@ interface Project {
   name: string;
   repo_url: string;      // normalized: no protocol, no trailing ".git", no trailing "/", lowercase host
   locations: ProjectLocation[];
-  clickup?: { list_id: string; url: string };
+  tracker?: TrackerLink;
   notes?: string;
 }
 
@@ -47,7 +49,29 @@ interface ProjectLocation {
   host: string;          // normalized backend host, e.g. "http://vps1:8000" (no trailing slash)
   path: string;          // checkout dir on that server, POSIX or Windows
 }
+
+// src/types/tracker.ts — generic issue/task tracker link
+type TrackerProviderId = "clickup"; // add a union member per new provider
+interface TrackerLink {
+  provider: TrackerProviderId;
+  ref: string;       // provider-specific id (e.g. ClickUp list id)
+  url?: string;      // http(s) link shown in the UI
+}
 ```
+
+### Tracker providers
+
+ClickUp is the only implemented provider. All provider-specific knowledge —
+display name, URL→ref parsing, ref validation, MCP name, and the prompt
+fragments telling the supervisor agent where/how to write — lives in one
+place: `src/utils/trackers.ts`'s `TRACKER_PROVIDERS` registry. To add a
+provider (GitHub Issues, Linear, Plane…): add one union member to
+`TrackerProviderId` (`src/types/tracker.ts`) and one entry to
+`TRACKER_PROVIDERS`. No other file — sync, the prompt skeleton, the project
+form, the card/detail links, or the supervisor panel — needs to change; they
+all read the registry generically. A legacy `clickup: {list_id, url}` project
+field (and the legacy `summary_clickup_list_id` supervisor setting) is
+migrated to the generic shape on read; see `src/utils/tracker-migration.ts`.
 
 - Location hosts and the primary backend should use each server's tailnet
   (e.g. Tailscale) hostname, not `localhost` — a `localhost` location or
@@ -93,7 +117,7 @@ interface ProjectLocation {
 - [x] When none is marked, the first local backend shall act as primary.
 
 ### PRJ-003: Project CRUD
-- [x] The user shall create a project with name, repo URL, one or more locations (server + folder path), optional ClickUp link and notes.
+- [x] The user shall create a project with name, repo URL, one or more locations (server + folder path), an optional tracker link and notes.
 - [x] The folder browser shall be offered for locations on the active server; locations on other servers take a typed path (the folder browser only browses the active backend).
 - [x] The user shall edit a project and delete it after a confirmation step.
 - [x] Repo URLs shall be stored normalized (PRJ-008).
@@ -135,7 +159,7 @@ interface ProjectLocation {
 ## Out of scope (phase 1)
 
 - Global all-projects dashboard (phase 2).
-- Rendering ClickUp tasks in the app (link only).
+- Rendering tracker tasks in the app (link only).
 - Creating conversations on a non-active backend without switching.
 - Tags, archiving, custom ordering.
 

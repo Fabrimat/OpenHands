@@ -10,6 +10,7 @@ import {
 import { I18nKey } from "#/i18n/declaration";
 import type { Project } from "#/types/project";
 import { resolveLocationBackend } from "#/utils/project-matching";
+import { TRACKER_PROVIDERS } from "#/utils/trackers";
 
 interface ProjectCardCountsProps {
   project: Project;
@@ -76,14 +77,16 @@ export function ProjectCard({ project, backends, health }: ProjectCardProps) {
         })}
       </ul>
       <ProjectCardCounts project={project} />
-      {project.clickup?.url ? (
+      {project.tracker?.url ? (
         <a
-          href={project.clickup.url}
+          href={project.tracker.url}
           target="_blank"
           rel="noreferrer"
           className="text-xs text-primary hover:underline w-fit"
         >
-          {t(I18nKey.PROJECTS$OPEN_CLICKUP)}
+          {t(I18nKey.PROJECTS$OPEN_IN_TRACKER, {
+            name: TRACKER_PROVIDERS[project.tracker.provider].displayName,
+          })}
         </a>
       ) : null}
     </li>

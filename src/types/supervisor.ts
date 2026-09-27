@@ -1,10 +1,12 @@
 // @spec PRJ-201 — Supervisor settings persist on the primary server
+import type { TrackerLink } from "./tracker";
+import { isValidTrackerLink } from "#/utils/trackers";
+
 export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-// @spec PRJ-209 — Restrict label/list-id shape so both are safe to interpolate
-// into prompt prose and ClickUp task titles without escaping.
+// @spec PRJ-209 — Restrict label shape so it's safe to interpolate into
+// prompt prose and tracker task titles without escaping.
 export const LABEL_PATTERN = /^[a-z0-9-]{1,32}$/;
-export const LIST_ID_PATTERN = /^[A-Za-z0-9]*$/; // empty allowed = no summary
 
 export const TIMEOUT_MIN_SECONDS = 60;
 export const TIMEOUT_MAX_SECONDS = 86400;
@@ -21,7 +23,7 @@ export interface SupervisorSettings {
   run_time: string;
   summary_time: string;
   timeout_seconds: number;
-  summary_clickup_list_id: string;
+  summary_tracker: TrackerLink | null;
   servers: SupervisorServer[];
 }
 
@@ -31,7 +33,7 @@ export const DEFAULT_SUPERVISOR_SETTINGS: SupervisorSettings = {
   run_time: "08:00",
   summary_time: "09:00",
   timeout_seconds: 1800,
-  summary_clickup_list_id: "",
+  summary_tracker: null,
   servers: [],
 };
 
@@ -73,8 +75,7 @@ export function isValidSupervisorSettings(v: unknown): v is SupervisorSettings {
     Number.isInteger(s.timeout_seconds) &&
     s.timeout_seconds >= TIMEOUT_MIN_SECONDS &&
     s.timeout_seconds <= TIMEOUT_MAX_SECONDS &&
-    typeof s.summary_clickup_list_id === "string" &&
-    LIST_ID_PATTERN.test(s.summary_clickup_list_id) &&
+    (s.summary_tracker === null || isValidTrackerLink(s.summary_tracker)) &&
     Array.isArray(s.servers) &&
     s.servers.every(isValidServer)
   );

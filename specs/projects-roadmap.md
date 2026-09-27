@@ -6,7 +6,7 @@ every project monitored.
 
 | Phase | Scope | Status |
 |---|---|---|
-| 1 | Projects: git-repo-based projects stored on the primary server, per-server locations, ClickUp link, cross-server detail view | Spec: [`projects.md`](projects.md) |
+| 1 | Projects: git-repo-based projects stored on the primary server, per-server locations, tracker link (ClickUp today), cross-server detail view | Spec: [`projects.md`](projects.md) |
 | 2 | Multi-server dashboard | Spec: [`projects-dashboard.md`](projects-dashboard.md) |
 | 3 | Supervisor agent (federated, autonomy B) | Spec: [`projects-supervisor.md`](projects-supervisor.md) |
 | 4 | Borg backups | Not designed |
@@ -69,6 +69,8 @@ Per-project file storage beyond the git repo, used mainly by agents (specs, inpu
 
 ## Remaining items / ideas
 
-- In-app rendering of ClickUp tasks per project (phase 1 only links).
+- In-app rendering of tracker tasks per project (phase 1 only links).
+- More tracker providers (GitHub Issues / Linear / Plane) — see
+  [`projects.md`](projects.md) → "Tracker providers" for how to add one.
 - Project tags, archiving, custom ordering.
 - Conflict handling beyond last-write-wins for concurrent project edits.

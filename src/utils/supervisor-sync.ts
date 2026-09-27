@@ -77,7 +77,7 @@ export function buildSupervisorTargets(
             buildServerSupervisorPrompt(
               server.label,
               own,
-              settings.summary_clickup_list_id,
+              settings.summary_tracker,
             ),
             settings.run_time,
             index * SUPERVISOR_STAGGER_MINUTES,
@@ -94,9 +94,7 @@ export function buildSupervisorTargets(
     label: SUMMARY_TARGET_KEY,
     backend: primary,
     desired:
-      settings.enabled &&
-      activeLabels.length > 0 &&
-      settings.summary_clickup_list_id
+      settings.enabled && activeLabels.length > 0 && settings.summary_tracker
         ? desiredFor(
             SUMMARY_AUTOMATION_NAME,
             buildSummaryPrompt(settings, activeLabels),

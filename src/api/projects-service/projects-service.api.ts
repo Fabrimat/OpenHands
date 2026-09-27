@@ -7,6 +7,11 @@ import {
   type SupervisorSettings,
   DEFAULT_SUPERVISOR_SETTINGS,
 } from "#/types/supervisor";
+import {
+  LEGACY_SUMMARY_TRACKER_KEY,
+  normalizeProjectTracker,
+  normalizeSupervisorSettingsTracker,
+} from "#/utils/tracker-migration";
 
 // @spec PRJ-001 — Projects persist on the primary server
 function clientFor(backend: Backend) {
@@ -20,7 +25,9 @@ export const ProjectsService = {
     const response = await clientFor(backend).getSettings();
     const raw = (response.misc_settings as { projects?: unknown } | undefined)
       ?.projects;
-    return Array.isArray(raw) ? raw.filter(isValidProject) : [];
+    return Array.isArray(raw)
+      ? raw.map(normalizeProjectTracker).filter(isValidProject)
+      : [];
   },
 
   async saveProjects(backend: Backend, projects: Project[]): Promise<void> {
@@ -35,16 +42,24 @@ export const ProjectsService = {
     const response = await clientFor(backend).getSettings();
     const raw = (response.misc_settings as { supervisor?: unknown } | undefined)
       ?.supervisor;
-    return isValidSupervisorSettings(raw) ? raw : DEFAULT_SUPERVISOR_SETTINGS;
+    const normalized = normalizeSupervisorSettingsTracker(raw);
+    return isValidSupervisorSettings(normalized)
+      ? normalized
+      : DEFAULT_SUPERVISOR_SETTINGS;
   },
 
   async saveSupervisorSettings(
     backend: Backend,
     settings: SupervisorSettings,
   ): Promise<void> {
-    // Deep-merged server-side; every field is always sent, nothing needs clearing.
+    // Deep-merged server-side; every field is always sent. `summary_tracker`
+    // replaced the pre-tracker-abstraction settings field — send that legacy
+    // key as `null` too so a nested-null diff deletes it server-side instead
+    // of leaving it to linger (and be picked up again on a future read).
     await clientFor(backend).updateSettings({
-      misc_settings_diff: { supervisor: settings },
+      misc_settings_diff: {
+        supervisor: { ...settings, [LEGACY_SUMMARY_TRACKER_KEY]: null },
+      },
     });
   },
 };

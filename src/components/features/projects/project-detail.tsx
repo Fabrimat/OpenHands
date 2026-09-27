@@ -24,6 +24,7 @@ import { useTracking } from "#/hooks/use-tracking";
 import { I18nKey } from "#/i18n/declaration";
 import type { Project } from "#/types/project";
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
+import { TRACKER_PROVIDERS } from "#/utils/trackers";
 import { ProjectFormModal } from "./project-form-modal";
 import { ProjectLocationRow } from "./project-location-row";
 
@@ -153,14 +154,16 @@ function ProjectDetailBody({ project }: { project: Project }) {
         <span className="text-xs text-[var(--oh-muted)]">
           {project.repo_url}
         </span>
-        {project.clickup?.url ? (
+        {project.tracker?.url ? (
           <a
-            href={project.clickup.url}
+            href={project.tracker.url}
             target="_blank"
             rel="noreferrer"
             className="text-xs text-primary hover:underline"
           >
-            {t(I18nKey.PROJECTS$OPEN_CLICKUP)}
+            {t(I18nKey.PROJECTS$OPEN_IN_TRACKER, {
+              name: TRACKER_PROVIDERS[project.tracker.provider].displayName,
+            })}
           </a>
         ) : null}
         <div className="ml-auto flex gap-2">

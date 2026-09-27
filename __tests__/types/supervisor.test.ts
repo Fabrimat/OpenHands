@@ -5,7 +5,7 @@ import {
   isValidTimezone,
 } from "#/types/supervisor";
 
-// @spec PRJ-201 — Invalid timezone/timeout/list-id/label must not be
+// @spec PRJ-201 — Invalid timezone/timeout/tracker/label must not be
 // accepted as valid persisted settings (guards a silent reset to defaults).
 describe("isValidTimezone", () => {
   it.each([
@@ -27,18 +27,25 @@ describe("isValidSupervisorSettings", () => {
     ["timeout below the floor", { timeout_seconds: 59 }],
     ["timeout above the ceiling", { timeout_seconds: 86401 }],
     ["non-integer timeout", { timeout_seconds: 1800.5 }],
-    ["non-alphanumeric list id", { summary_clickup_list_id: "abc-123" }],
+    [
+      "non-alphanumeric tracker ref",
+      { summary_tracker: { provider: "clickup", ref: "abc-123" } },
+    ],
+    [
+      "unknown tracker provider",
+      { summary_tracker: { provider: "bogus", ref: "ABC123" } },
+    ],
   ])("rejects %s", (_name, patch) => {
     expect(
       isValidSupervisorSettings({ ...DEFAULT_SUPERVISOR_SETTINGS, ...patch }),
     ).toBe(false);
   });
 
-  it("accepts an empty summary_clickup_list_id (no summary)", () => {
+  it("accepts a null summary_tracker (no summary)", () => {
     expect(
       isValidSupervisorSettings({
         ...DEFAULT_SUPERVISOR_SETTINGS,
-        summary_clickup_list_id: "",
+        summary_tracker: null,
       }),
     ).toBe(true);
   });

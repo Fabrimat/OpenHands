@@ -1161,17 +1161,28 @@ export const SETTINGS_HANDLERS = [
           body.misc_settings_diff as { projects: unknown[] }
         ).projects;
       }
-      // @spec PRJ-201 — Mock passthrough for supervisor settings
+      // @spec PRJ-201 — Mock passthrough for supervisor settings. Mirrors the
+      // real agent-server's misc_settings_diff semantics: a nested `null`
+      // deletes that key instead of setting it to `null` (verified against a
+      // live agent-server — used to clear a legacy field once its
+      // replacement field wins).
       const supervisorDiff = (
         body.misc_settings_diff as { supervisor?: Record<string, unknown> }
       ).supervisor;
       if (supervisorDiff && typeof supervisorDiff === "object") {
-        nextMisc.supervisor = {
+        const mergedSupervisor: Record<string, unknown> = {
           ...((
             existingMisc as { supervisor?: Record<string, unknown> } | undefined
           )?.supervisor ?? {}),
-          ...supervisorDiff,
         };
+        for (const [key, value] of Object.entries(supervisorDiff)) {
+          if (value === null) {
+            delete mergedSupervisor[key];
+          } else {
+            mergedSupervisor[key] = value;
+          }
+        }
+        nextMisc.supervisor = mergedSupervisor;
       }
       (nextSettings as Record<string, unknown>).misc_settings = nextMisc;
     }

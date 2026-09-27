@@ -70,12 +70,62 @@ describe("ProjectsService supervisor settings", () => {
     );
   });
 
-  it("saves the whole object through misc_settings_diff", async () => {
+  // @spec PRJ-003, PRJ-201 — Migration on read: legacy field wins only when
+  // the new field is absent (a real legacy blob never had `summary_tracker`)
+  it("migrates a legacy summary list id to summary_tracker on read", async () => {
+    const { summary_tracker: _omit, ...legacyBase } =
+      DEFAULT_SUPERVISOR_SETTINGS;
+    getSettings.mockResolvedValue({
+      misc_settings: {
+        supervisor: { ...legacyBase, summary_clickup_list_id: "LIST1" },
+      },
+    });
+    const result = await ProjectsService.getSupervisorSettings(primary);
+    expect(result.summary_tracker).toEqual({
+      provider: "clickup",
+      ref: "LIST1",
+    });
+  });
+
+  it("saves the whole object through misc_settings_diff, clearing the legacy field", async () => {
     updateSettings.mockResolvedValue({});
     const settings = { ...DEFAULT_SUPERVISOR_SETTINGS, enabled: true };
     await ProjectsService.saveSupervisorSettings(primary, settings);
     expect(updateSettings).toHaveBeenCalledWith({
-      misc_settings_diff: { supervisor: settings },
+      misc_settings_diff: {
+        supervisor: { ...settings, summary_clickup_list_id: null },
+      },
     });
+  });
+});
+
+// @spec PRJ-003 — Migration on read: legacy `clickup` field
+describe("ProjectsService project tracker migration", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("migrates a legacy clickup field to tracker on read", async () => {
+    getSettings.mockResolvedValue({
+      misc_settings: {
+        projects: [{ ...project, clickup: { list_id: "L1", url: "http://x" } }],
+      },
+    });
+    const result = await ProjectsService.getProjects(primary);
+    expect(result).toEqual([
+      {
+        ...project,
+        tracker: { provider: "clickup", ref: "L1", url: "http://x" },
+      },
+    ]);
+  });
+
+  it("drops an invalid tracker provider instead of keeping the project invalid-but-present", async () => {
+    getSettings.mockResolvedValue({
+      misc_settings: {
+        projects: [
+          { ...project, id: "2", tracker: { provider: "bogus", ref: "x" } },
+        ],
+      },
+    });
+    expect(await ProjectsService.getProjects(primary)).toEqual([]);
   });
 });

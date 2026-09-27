@@ -68,7 +68,7 @@ describe("SupervisorPanel", () => {
       run_time: "08:00",
       summary_time: "09:00",
       timeout_seconds: 1800,
-      summary_clickup_list_id: "",
+      summary_tracker: null,
       servers: [
         { host: "http://pc1:8000", label: "pc1", enabled: true },
         { host: "http://vps1:8000", label: "vps1", enabled: true },
@@ -137,7 +137,7 @@ describe("SupervisorPanel", () => {
       run_time: "08:00",
       summary_time: "09:00",
       timeout_seconds: 1800,
-      summary_clickup_list_id: "list-1",
+      summary_tracker: { provider: "clickup", ref: "list-1" },
       servers: [
         { host: "http://pc1:8000", label: "pc1", enabled: true },
         { host: "http://vps1:8000", label: "vps1", enabled: true },
@@ -175,7 +175,7 @@ describe("SupervisorPanel", () => {
       run_time: "08:00",
       summary_time: "09:00",
       timeout_seconds: 1800,
-      summary_clickup_list_id: "list-1",
+      summary_tracker: { provider: "clickup", ref: "list-1" },
       servers: [
         { host: "http://pc1:8000", label: "pc1", enabled: false },
         { host: "http://vps1:8000", label: "vps1", enabled: false },
@@ -216,7 +216,7 @@ describe("SupervisorPanel", () => {
       run_time: "08:00",
       summary_time: "09:00",
       timeout_seconds: 1800,
-      summary_clickup_list_id: "",
+      summary_tracker: null,
       servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
     });
     vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({
@@ -259,7 +259,7 @@ describe("SupervisorPanel", () => {
       run_time: "08:00",
       summary_time: "09:00",
       timeout_seconds: 1800,
-      summary_clickup_list_id: "",
+      summary_tracker: null,
       servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
     };
     vi.spyOn(ProjectsService, "getSupervisorSettings").mockImplementation(
@@ -328,7 +328,7 @@ describe("SupervisorPanel", () => {
         run_time: "08:00",
         summary_time: "09:00",
         timeout_seconds: 1800,
-        summary_clickup_list_id: "",
+        summary_tracker: null,
         servers: [{ host: "http://pc1:8000", label: "pc1", enabled: false }],
       });
       // `vi.spyOn` re-wraps an already-mocked method in place, so an earlier

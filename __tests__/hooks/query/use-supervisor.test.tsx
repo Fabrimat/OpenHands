@@ -73,7 +73,7 @@ const settings: SupervisorSettings = {
   run_time: "08:00",
   summary_time: "09:00",
   timeout_seconds: 1800,
-  summary_clickup_list_id: "S",
+  summary_tracker: { provider: "clickup", ref: "S" },
   servers: [
     { host: "http://pc1:8000", label: "pc1", enabled: true },
     { host: "http://vps1:8000", label: "vps1", enabled: true },
@@ -152,7 +152,7 @@ describe("useSupervisorSync", () => {
     // Single-server settings: no summary automation, so the sweep only runs once.
     vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
       ...settings,
-      summary_clickup_list_id: "",
+      summary_tracker: null,
       servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
     });
     vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({
@@ -205,7 +205,7 @@ describe("useSupervisorSync", () => {
     };
     vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
       ...settings,
-      summary_clickup_list_id: "",
+      summary_tracker: null,
       servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
     });
     vi.spyOn(AutomationService, "listAutomationsForBackend").mockResolvedValue({
@@ -239,7 +239,7 @@ describe("useSupervisorSync", () => {
   it("serializes two back-to-back sync calls so a target is created only once", async () => {
     vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
       ...settings,
-      summary_clickup_list_id: "",
+      summary_tracker: null,
       servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
     });
     // Stateful list mock: the second (serialized) run must see the first

@@ -325,8 +325,10 @@ browser on `pc1` is allowed to read `pc2`'s project data.
 
 The Projects page can enable a daily "Supervisore" automation on every
 registered server (phase 3, autonomy level B: observe and propose only — see
-[`specs/projects-supervisor.md`](../specs/projects-supervisor.md)). Before
-turning it on:
+[`specs/projects-supervisor.md`](../specs/projects-supervisor.md)). Projects
+and the supervisor link to a pluggable tracker (`src/utils/trackers.ts`);
+ClickUp is the only provider today, so the steps below refer to it directly.
+Before turning it on:
 
 1. **Configure the ClickUp MCP on every server with a dedicated ClickUp
    member or guest account whose only access is the projects space.** A

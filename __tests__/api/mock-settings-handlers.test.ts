@@ -100,4 +100,49 @@ describe("mock settings handlers", () => {
     expect(finalList.profiles).toEqual([]);
     expect(finalList.active_profile).toBeNull();
   });
+
+  // @spec PRJ-201 — Nested `null` in misc_settings_diff.supervisor deletes
+  // that key (matches the real agent-server's misc_settings_diff semantics),
+  // used to clear the legacy `summary_clickup_list_id` field once
+  // `summary_tracker` replaces it.
+  it("deletes a nested supervisor field when its diff value is null", async () => {
+    await fetch("http://localhost:3000/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        misc_settings_diff: {
+          supervisor: { enabled: true, summary_clickup_list_id: "LEGACY" },
+        },
+      }),
+    });
+    const afterFirst = (await (
+      await fetch("http://localhost:3000/api/settings")
+    ).json()) as { misc_settings: { supervisor: Record<string, unknown> } };
+    expect(afterFirst.misc_settings.supervisor.summary_clickup_list_id).toBe(
+      "LEGACY",
+    );
+
+    await fetch("http://localhost:3000/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        misc_settings_diff: {
+          supervisor: {
+            summary_tracker: { provider: "clickup", ref: "NEW" },
+            summary_clickup_list_id: null,
+          },
+        },
+      }),
+    });
+    const afterSecond = (await (
+      await fetch("http://localhost:3000/api/settings")
+    ).json()) as { misc_settings: { supervisor: Record<string, unknown> } };
+    expect(afterSecond.misc_settings.supervisor).not.toHaveProperty(
+      "summary_clickup_list_id",
+    );
+    expect(afterSecond.misc_settings.supervisor.summary_tracker).toEqual({
+      provider: "clickup",
+      ref: "NEW",
+    });
+  });
 });

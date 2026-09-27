@@ -21,13 +21,13 @@ import {
   isValidSupervisorSettings,
   isValidTimezone,
   LABEL_PATTERN,
-  LIST_ID_PATTERN,
   TIME_PATTERN,
   TIMEOUT_MAX_SECONDS,
   TIMEOUT_MIN_SECONDS,
   type SupervisorServer,
   type SupervisorSettings,
 } from "#/types/supervisor";
+import type { TrackerProviderId } from "#/types/tracker";
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
 import { formControlSettingsFieldClassName } from "#/utils/form-control-classes";
 import { hostsMatch, normalizeHost } from "#/utils/project-matching";
@@ -39,6 +39,7 @@ import {
   SUPERVISOR_STAGGER_MINUTES,
   SUMMARY_TARGET_KEY,
 } from "#/utils/supervisor-sync";
+import { isTrackerProviderId, TRACKER_PROVIDERS } from "#/utils/trackers";
 import { cn } from "#/utils/utils";
 
 const STATE_KEYS: Record<RowState, I18nKey> = {
@@ -104,7 +105,7 @@ export function SupervisorPanel() {
 
   // Review fix — labels must be non-empty, unique, and restricted to
   // `LABEL_PATTERN` (they're interpolated unescaped into prompt prose and
-  // ClickUp task titles). Track per-row so the offending input(s) can show
+  // tracker task titles). Track per-row so the offending input(s) can show
   // an inline error instead of a silently disabled Save button.
   const trimmedLabels = local.servers.map((s) => s.label.trim().toLowerCase());
   const labelCounts = trimmedLabels.reduce<Record<string, number>>(
@@ -123,7 +124,13 @@ export function SupervisorPanel() {
     Number.isInteger(local.timeout_seconds) &&
     local.timeout_seconds >= TIMEOUT_MIN_SECONDS &&
     local.timeout_seconds <= TIMEOUT_MAX_SECONDS;
-  const listIdValid = LIST_ID_PATTERN.test(local.summary_clickup_list_id);
+  const summaryTracker = local.summary_tracker;
+  const summaryTrackerValid =
+    summaryTracker === null ||
+    (isTrackerProviderId(summaryTracker.provider) &&
+      TRACKER_PROVIDERS[summaryTracker.provider].isValidRef(
+        summaryTracker.ref,
+      ));
 
   // @spec PRJ-207 — Summary-too-early warning uses the largest index among
   // *enabled* servers (not the enabled count): the stagger a server actually
@@ -151,7 +158,7 @@ export function SupervisorPanel() {
   const canSave =
     !primaryUnreachable &&
     labelsValid &&
-    listIdValid &&
+    summaryTrackerValid &&
     isValidSupervisorSettings(local) &&
     isValidTimezone(local.timezone);
 
@@ -287,23 +294,66 @@ export function SupervisorPanel() {
                 }))
               }
             />
-            <SettingsInput
-              testId={`${TEST_ID_ROOT}-summary-list`}
-              label={t(I18nKey.SUPERVISOR$SUMMARY_LIST)}
-              type="text"
-              value={local.summary_clickup_list_id}
-              isDisabled={primaryUnreachable}
-              className="col-span-2"
-              error={
-                !listIdValid ? t(I18nKey.SUPERVISOR$LIST_ID_INVALID) : undefined
-              }
-              onChange={(value) =>
-                setLocal((prev) => ({
-                  ...prev,
-                  summary_clickup_list_id: value,
-                }))
-              }
-            />
+            <div className="col-span-2 flex flex-col gap-2">
+              <label className="flex flex-col gap-2.5 w-full min-w-0">
+                <span className="text-sm">
+                  {t(I18nKey.SUPERVISOR$SUMMARY_TRACKER)}
+                </span>
+                <select
+                  aria-label={t(I18nKey.SUPERVISOR$SUMMARY_TRACKER)}
+                  data-testid={`${TEST_ID_ROOT}-summary-tracker`}
+                  value={summaryTracker?.provider ?? ""}
+                  disabled={primaryUnreachable}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setLocal((prev) => ({
+                      ...prev,
+                      summary_tracker: value
+                        ? {
+                            provider: value as TrackerProviderId,
+                            ref: prev.summary_tracker?.ref ?? "",
+                          }
+                        : null,
+                    }));
+                  }}
+                  className={formControlSettingsFieldClassName}
+                >
+                  <option value="">{t(I18nKey.PROJECTS$TRACKER_NONE)}</option>
+                  {Object.entries(TRACKER_PROVIDERS).map(([id, provider]) => (
+                    <option key={id} value={id}>
+                      {provider.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {summaryTracker ? (
+                <SettingsInput
+                  testId={`${TEST_ID_ROOT}-summary-tracker-ref`}
+                  label={t(I18nKey.SUPERVISOR$SUMMARY_TRACKER_REF)}
+                  type="text"
+                  value={summaryTracker.ref}
+                  isDisabled={primaryUnreachable}
+                  error={
+                    !summaryTrackerValid
+                      ? t(I18nKey.SUPERVISOR$TRACKER_REF_INVALID)
+                      : undefined
+                  }
+                  onChange={(value) =>
+                    setLocal((prev) =>
+                      prev.summary_tracker
+                        ? {
+                            ...prev,
+                            summary_tracker: {
+                              ...prev.summary_tracker,
+                              ref: value,
+                            },
+                          }
+                        : prev,
+                    )
+                  }
+                />
+              ) : null}
+            </div>
           </div>
 
           <ul className="flex flex-col gap-2">
@@ -379,7 +429,7 @@ export function SupervisorPanel() {
                       const prompt = buildServerSupervisorPrompt(
                         server.label,
                         projectsForHost(projects.data ?? [], server.host),
-                        local.summary_clickup_list_id,
+                        local.summary_tracker,
                       );
                       void navigator.clipboard.writeText(prompt);
                     }}

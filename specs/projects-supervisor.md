@@ -29,8 +29,8 @@ Revised after a Fable ADVISE review (verdict: sound with changes).
   - Per project list: a parent task `📊 Stato progetto` with one subtask per server, `📊 Stato — <label>`. Each server rewrites only its own subtask.
   - Suggestions are separate tasks tagged `supervisor-suggestion` with a fixed title key `[<label>] <project>: <kind>`, where `kind` is from a closed set: `behind-upstream`, `ahead-unpushed`, `uncommitted-changes`, `detached-head`, `fetch-failed`, `path-missing`, `not-a-repo`. The fixed title is the de-dup key.
   - Each run **closes its own open suggestions whose condition no longer holds**.
-  - Projects without `clickup.list_id` are reported under the summary's "Supervisore" list in a per-server "Progetti senza lista ClickUp" section, not skipped.
-  - Summary: one fixed task in the "Supervisore" list, description rewritten daily, plus one dated comment per run.
+  - Projects without a `tracker` are reported under the summary tracker's "Supervisore" list in a per-server "Progetti senza lista ClickUp" section, not skipped. See [`projects.md`](projects.md) → "Tracker providers" for how the tracker abstraction works; ClickUp is the only implemented provider today.
+  - Summary: one fixed task in the "Supervisore" list, description rewritten daily, plus one dated comment per run. The summary reads status only from its own configured tracker (`summary_tracker`) — a project tracked in a different provider than the summary's is still checked by its server's run, but its status won't appear in the ClickUp-based summary unless the summary tracker is also ClickUp.
 - **Failure signalling via `finish`:** a run ends with `finish(status, outcome_summary)`: `failed` if the ClickUp MCP is unavailable, `partial_success` if some projects could not be checked, `success` otherwise.
 - **Missed runs** (a PC powered off at run time) are not caught up; the summary's "not updated today" flag covers them.
 
@@ -44,7 +44,7 @@ interface SupervisorSettings {
   run_time: string;                 // "HH:MM", default "08:00"; server i runs at run_time + 5 min × i
   summary_time: string;             // "HH:MM", default "09:00"
   timeout_seconds: number;          // default 1800, clamped to server max at sync
-  summary_clickup_list_id: string;  // "Supervisore" list
+  summary_tracker: TrackerLink | null; // e.g. { provider: "clickup", ref: "<list id>" }; the "Supervisore" list
   servers: SupervisorServer[];      // order defines the stagger
 }
 
@@ -62,7 +62,7 @@ interface SupervisorServer {
 ## Architecture
 
 - `src/types/supervisor.ts`: types, `isValidSupervisorSettings`, `DEFAULT_SUPERVISOR_SETTINGS` (disabled).
-- `src/utils/supervisor-prompt.ts`: pure `buildServerSupervisorPrompt(label, projects, settings)`, `buildSummaryPrompt(settings, projects, labels)`, `supervisorCronSchedule(time, offsetMinutes)`.
+- `src/utils/supervisor-prompt.ts`: pure `buildServerSupervisorPrompt(label, projects, summaryTracker)`, `buildSummaryPrompt(settings, labels)`, `supervisorCronSchedule(time, offsetMinutes)`. Provider-specific wording comes from `src/utils/trackers.ts`'s registry, not from this file.
 - `src/utils/supervisor-sync.ts`: pure `desiredSupervisorAutomations(settings, projects, backends, serverMaxTimeout) → Desired[]` and `diffAutomation(existing | undefined, desired | null) → "create" | "update" | "disable" | "noop" | "conflict"`.
 - `src/api/automation-service/automation-service.api.ts`:
   - `createAutomationForBackend(backend, spec)`: **one** POST to the prompt-create endpoint with the cron trigger and `enabled` set, pinned via `buildPinnedLocalConfig`. It does not reuse `createAutomation`'s import flow (placeholder event, then PATCH, then disabled).
@@ -125,7 +125,7 @@ The summary prompt reads each project's status subtasks and open `supervisor-sug
 
 ### PRJ-209: ClickUp suggestion lifecycle
 - [x] Suggestion titles shall use the fixed key `[<label>] <project>: <kind>` with `kind` from the closed set; the prompt shall instruct de-dup by exact title and closing of own suggestions whose condition no longer holds.
-- [x] Projects without a ClickUp list shall be reported under the summary list, not skipped.
+- [x] Projects without a tracker shall be reported under the summary tracker's list, not skipped.
 
 ### PRJ-210: No cross-server secrets
 - [x] No server's session key shall be written to another server, to `misc_settings`, or into any prompt. The ClickUp token shall live only in each server's MCP configuration.

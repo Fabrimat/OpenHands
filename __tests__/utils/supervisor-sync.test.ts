@@ -72,7 +72,7 @@ describe("buildSupervisorTargets", () => {
   const settings = {
     ...DEFAULT_SUPERVISOR_SETTINGS,
     enabled: true,
-    summary_clickup_list_id: "S",
+    summary_tracker: { provider: "clickup" as const, ref: "S" },
     servers: [
       { host: "http://pc1:8000", label: "pc1", enabled: true },
       { host: "http://vps1:8000", label: "vps1", enabled: true },
