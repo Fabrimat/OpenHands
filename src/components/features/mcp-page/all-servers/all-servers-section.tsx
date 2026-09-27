@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { MCPServer } from "@openhands/typescript-client";
 import type { Backend } from "#/api/backend-registry/types";
-import type { MCPAuthCredential } from "#/types/mcp-auth";
 import type {
   ExtendedMCPTestResponse,
   MCPServerConfig,
@@ -36,49 +35,6 @@ const FIELD_LABEL_KEYS: Record<FingerprintField, I18nKey> = {
   header_keys: I18nKey.MCP$FLEET_FIELD_HEADER_KEYS,
   auth_strategy: I18nKey.MCP$FLEET_FIELD_AUTH_STRATEGY,
 };
-
-function blankStringRecord(
-  record: Record<string, string> | undefined,
-): Record<string, string> | undefined {
-  if (!record) return undefined;
-  return Object.fromEntries(Object.keys(record).map((key) => [key, ""]));
-}
-
-function blankAuth(
-  auth: MCPAuthCredential | undefined,
-): MCPAuthCredential | undefined {
-  if (!auth) return auth;
-  switch (auth.strategy) {
-    case "bearer":
-    case "api_key":
-      return { ...auth, value: "" };
-    case "basic":
-      return { ...auth, password: "" };
-    case "header":
-      return { ...auth, headers: blankStringRecord(auth.headers) ?? {} };
-    case "oauth2":
-      return {
-        ...auth,
-        state: undefined,
-        authentication: auth.authentication
-          ? { ...auth.authentication, client_secret: "" }
-          : auth.authentication,
-      };
-    default:
-      return auth;
-  }
-}
-
-// @spec PRJ-603 — Starting from a row prefills non-secret fields only;
-// every env/header/auth secret value is cleared so it must be re-entered.
-function blankMcpSecrets(server: MCPServerConfig): MCPServerConfig {
-  return {
-    ...server,
-    ...(server.env && { env: blankStringRecord(server.env) }),
-    ...(server.headers && { headers: blankStringRecord(server.headers) }),
-    ...(server.auth && { auth: blankAuth(server.auth) }),
-  };
-}
 
 interface FleetTableCellProps {
   t: TFunction<"openhands">;
@@ -172,9 +128,16 @@ export function AllServersSection() {
   // @spec PRJ-601 — Hidden for a single local backend or cloud-only registries
   if (columns.length < 2) return null;
 
+  // @spec PRJ-603 — Prefill carries every field, including secrets, exactly
+  // as the row's reference has them. A stored secret shows up as the
+  // REDACTED_MCP_SECRET_VALUE placeholder (never blanked to ""), so
+  // `hasRedactedSecret` blocks the submit until the user replaces it —
+  // blanking would silently submit an empty secret / drop `auth` entirely
+  // (buildReplacementPatch then nulls it out) on every backend that gets
+  // overwritten.
   const handlePushRow = (row: FleetRow) => {
     const prefill = flattenMcpConfig({ [row.key]: row.reference })[0];
-    setPushRequest({ initialServer: blankMcpSecrets(prefill) });
+    setPushRequest({ initialServer: prefill });
   };
 
   return (

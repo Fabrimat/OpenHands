@@ -32,6 +32,7 @@ function backend(id: string): Backend {
 
 const backendA = backend("a");
 const backendB = backend("b");
+const backendC = backend("c");
 
 function renderSection() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -224,42 +225,53 @@ describe("AllServersSection", () => {
     );
   });
 
-  // @spec PRJ-603 — Redacted leaks are blocked before the push ever fires
-  it("blocks the push and shows the secret-required error when the env field still holds the redacted placeholder", async () => {
-    const stdioEntry = {
-      transport: "stdio",
-      command: "npx",
-      args: ["-y", "server"],
-      env: { TOKEN: REDACTED_MCP_SECRET_VALUE },
-    } as MCPServer;
-    setRegisteredBackends([backendA, backendB]);
-    setActiveSelection({ backendId: "a" });
-    vi.spyOn(McpFleetService, "getConfig").mockResolvedValue({
-      shared: stdioEntry,
-    });
-    const pushSpy = vi
-      .spyOn(McpFleetService, "push")
-      .mockResolvedValue(undefined);
+  // @spec PRJ-603 — Redacted leaks are blocked before the push ever fires.
+  // Prefill keeps the row's actual (redacted) values — it never blanks them
+  // — so the natural "didn't touch the form" path already holds the
+  // placeholder and must be blocked, for every kind of secret field.
+  it.each([
+    {
+      name: "env",
+      stored: {
+        transport: "stdio",
+        command: "npx",
+        args: ["-y", "server"],
+        env: { TOKEN: REDACTED_MCP_SECRET_VALUE },
+      } as MCPServer,
+    },
+    {
+      name: "bearer auth",
+      stored: {
+        transport: "http",
+        url: "https://example.com/mcp",
+        auth: { strategy: "bearer", value: REDACTED_MCP_SECRET_VALUE },
+      } as MCPServer,
+    },
+  ])(
+    "blocks the push and shows the secret-required error for a redacted $name value, without editing the form",
+    async ({ stored }) => {
+      setRegisteredBackends([backendA, backendB]);
+      setActiveSelection({ backendId: "a" });
+      vi.spyOn(McpFleetService, "getConfig").mockResolvedValue({
+        shared: stored,
+      });
+      const pushSpy = vi
+        .spyOn(McpFleetService, "push")
+        .mockResolvedValue(undefined);
 
-    renderSection();
-    fireEvent.click(await screen.findByTestId("mcp-fleet-row-push-shared"));
-    const modal = await screen.findByTestId("mcp-fleet-push-modal");
+      renderSection();
+      fireEvent.click(await screen.findByTestId("mcp-fleet-row-push-shared"));
+      const modal = await screen.findByTestId("mcp-fleet-push-modal");
 
-    // Prefill blanks the secret — starting value has no redacted placeholder.
-    expect(within(modal).getByTestId("env-input")).toHaveValue("TOKEN=");
+      // Submit immediately — no field is touched.
+      fireEvent.click(within(modal).getByTestId("submit-button"));
 
-    // The field still ends up holding the placeholder (e.g. pasted back in);
-    // the guard must catch it regardless of how it got there.
-    fireEvent.change(within(modal).getByTestId("env-input"), {
-      target: { value: `TOKEN=${REDACTED_MCP_SECRET_VALUE}` },
-    });
-    fireEvent.click(within(modal).getByTestId("submit-button"));
-
-    expect(
-      await screen.findByTestId("mcp-fleet-secret-required"),
-    ).toHaveTextContent("MCP$FLEET_SECRET_REQUIRED");
-    expect(pushSpy).not.toHaveBeenCalled();
-  });
+      expect(
+        await screen.findByTestId("mcp-fleet-secret-required"),
+      ).toHaveTextContent("MCP$FLEET_SECRET_REQUIRED");
+      expect(pushSpy).not.toHaveBeenCalled();
+    },
+  );
 
   // @spec PRJ-605 — On-demand test
   it("tests a cell on that backend and shows the tool count", async () => {
@@ -285,5 +297,35 @@ describe("AllServersSection", () => {
     expect(
       await screen.findByTestId("mcp-fleet-test-result-shared-a"),
     ).toHaveTextContent("MCP$TEST_SUCCESS");
+  });
+
+  // @spec PRJ-604 — Remove an entry from servers
+  it("removes an entry only from the checked backends, after confirming", async () => {
+    setRegisteredBackends([backendA, backendB, backendC]);
+    setActiveSelection({ backendId: "a" });
+    vi.spyOn(McpFleetService, "getConfig").mockResolvedValue({
+      shared: { transport: "stdio", command: "npx" } as MCPServer,
+    });
+    const removeSpy = vi
+      .spyOn(McpFleetService, "remove")
+      .mockResolvedValue(undefined);
+
+    renderSection();
+    fireEvent.click(await screen.findByTestId("mcp-fleet-row-remove-shared"));
+    const modal = await screen.findByTestId("mcp-fleet-remove-modal");
+
+    // All three are checked by default; uncheck B.
+    fireEvent.click(within(modal).getByTestId("mcp-fleet-remove-target-b"));
+    fireEvent.click(within(modal).getByTestId("mcp-fleet-remove-continue"));
+
+    await screen.findByTestId("confirmation-modal");
+    expect(removeSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId("confirm-button"));
+
+    await waitFor(() => expect(removeSpy).toHaveBeenCalledTimes(2));
+    expect(removeSpy).toHaveBeenCalledWith(backendA, "shared");
+    expect(removeSpy).toHaveBeenCalledWith(backendC, "shared");
+    expect(removeSpy).not.toHaveBeenCalledWith(backendB, "shared");
   });
 });
