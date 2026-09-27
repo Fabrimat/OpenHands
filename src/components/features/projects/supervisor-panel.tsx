@@ -310,6 +310,18 @@ export function SupervisorPanel() {
                   {row?.error ? (
                     <span className="text-red-400">{row.error}</span>
                   ) : null}
+                  <BrandButton
+                    type="button"
+                    variant="secondary"
+                    testId={`${TEST_ID_ROOT}-copy-prompt-${server.label}`}
+                    isDisabled={!row?.target.desired?.prompt}
+                    onClick={() => {
+                      const prompt = row?.target.desired?.prompt;
+                      if (prompt) void navigator.clipboard.writeText(prompt);
+                    }}
+                  >
+                    {t(I18nKey.SUPERVISOR$COPY_PROMPT)}
+                  </BrandButton>
                 </li>
               );
             })}

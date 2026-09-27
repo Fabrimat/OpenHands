@@ -42550,6 +42550,23 @@
     "zh-CN": "添加所有本地服务器",
     "zh-TW": "新增所有本機伺服器"
   },
+  "SUPERVISOR$COPY_PROMPT": {
+    "ar": "نسخ الموجه",
+    "ca": "Copia la indicació",
+    "de": "Prompt kopieren",
+    "en": "Copy prompt",
+    "es": "Copiar indicación",
+    "fr": "Copier l'invite",
+    "it": "Copia prompt",
+    "ja": "プロンプトをコピー",
+    "ko-KR": "프롬프트 복사",
+    "no": "Kopier ledetekst",
+    "pt": "Copiar prompt",
+    "tr": "İstemi kopyala",
+    "uk": "Копіювати запит",
+    "zh-CN": "复制提示",
+    "zh-TW": "複製提示"
+  },
   "DASHBOARD$TITLE": {
     "ar": "لوحة التحكم",
     "ca": "Tauler",

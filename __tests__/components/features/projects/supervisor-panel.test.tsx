@@ -1,5 +1,5 @@
 import React from "react";
-import { beforeEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -202,5 +202,55 @@ describe("SupervisorPanel", () => {
       expect.anything(),
       expect.objectContaining({ name: "Supervisore — pc1" }),
     );
+  });
+
+  // @spec PRJ-207 — "Copy prompt" copies the row's desired prompt verbatim
+  describe("copy prompt", () => {
+    const originalClipboard = navigator.clipboard;
+
+    afterEach(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: originalClipboard,
+      });
+    });
+
+    it("copies the row's desired prompt to the clipboard", async () => {
+      vi.spyOn(ProjectsService, "getProjects").mockResolvedValue([
+        {
+          id: "1",
+          name: "App",
+          repo_url: "github.com/fab/app",
+          locations: [{ host: "http://pc1:8000", path: "/srv/app" }],
+        },
+      ]);
+      vi.spyOn(ProjectsService, "getSupervisorSettings").mockResolvedValue({
+        enabled: true,
+        timezone: "Europe/Rome",
+        run_time: "08:00",
+        summary_time: "09:00",
+        timeout_seconds: 1800,
+        summary_clickup_list_id: "",
+        servers: [{ host: "http://pc1:8000", label: "pc1", enabled: true }],
+      });
+      vi.spyOn(
+        AutomationService,
+        "listAutomationsForBackend",
+      ).mockResolvedValue({ automations: [], total: 0 });
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      const user = userEvent.setup();
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      renderPanel();
+
+      await user.click(await screen.findByTestId("supervisor-copy-prompt-pc1"));
+
+      expect(writeText).toHaveBeenCalledTimes(1);
+      const [copiedPrompt] = writeText.mock.calls[0];
+      expect(copiedPrompt).toContain("<!-- agent-canvas:supervisor v1 -->");
+      expect(copiedPrompt).toContain('"App"');
+    });
   });
 });

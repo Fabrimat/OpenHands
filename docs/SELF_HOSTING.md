@@ -320,3 +320,59 @@ second machine, `pc2`, as another backend, `pc2`'s agent-server needs
 `OH_ALLOW_CORS_ORIGINS=["http://pc1:8000"]` (and `AUTOMATION_CORS_ORIGINS`
 including `http://pc1:8000` if `pc2` also runs the automation backend) so the
 browser on `pc1` is allowed to read `pc2`'s project data.
+
+### Project supervisor
+
+The Projects page can enable a daily "Supervisore" automation on every
+registered server (phase 3, autonomy level B: observe and propose only — see
+[`specs/projects-supervisor.md`](../specs/projects-supervisor.md)). Before
+turning it on:
+
+1. **Configure the ClickUp MCP on every server with a dedicated ClickUp
+   member or guest account whose only access is the projects space.** A
+   personal ClickUp API token cannot be scoped to a space, so a token minted
+   from your own account would hand the supervisor (and anything else on
+   that server) access to everything else in your ClickUp workspace. Create
+   a separate member/guest account limited to the projects space and
+   configure its token as that server's ClickUp MCP credential.
+2. **Understand the supervisor's real blast radius.** The prompt instructs
+   the agent to only observe and propose — it must not edit files, commit,
+   push, change branches, call any agent-server or automation API,
+   start/stop/delete conversations or automations, or change settings. That
+   is enforced by instruction, not by a technical sandbox: a supervisor run
+   is an ordinary conversation on that server, so it can do anything any
+   conversation on that server could do, including:
+   - act as the OS user the agent-server runs as;
+   - use whatever git credentials are configured on that machine;
+   - call **every** MCP server configured on that agent-server, not only
+     ClickUp;
+   - reach the server's own `/api/*` with the session API key present in its
+     process environment.
+
+   Autonomy level B is acceptable for a single-user, self-hosted, observe-only
+   setup precisely because that blast radius already exists for every
+   conversation you start by hand. Don't enable the supervisor on a server
+   you wouldn't otherwise trust with an unattended conversation.
+3. **Run the spike runbook once, on one server, before enabling the
+   supervisor everywhere.** This exercises the automation path by hand so
+   you can confirm the assumptions the design depends on:
+   1. On that server's **Automations** page, create a new prompt automation.
+   2. Open `/projects`, expand the **Supervisore** section, add the server
+      as a row, and click that row's **Copy prompt** button — it copies the
+      exact prompt the supervisor would run for that server's projects.
+   3. Paste the copied prompt into the automation you created in step 1, and
+      dispatch it.
+   4. Read the run and answer the five spike questions from the "Spike"
+      section of [`specs/projects-supervisor.md`](../specs/projects-supervisor.md):
+      whether git checks succeed non-interactively as the agent-server's OS
+      user, whether the ClickUp MCP is reachable from an automation-created
+      conversation, whether the run needs `finish` to reach `COMPLETED` (and
+      whether `finish(status: "failed")` surfaces as failed in the UI),
+      whether the prompt-create endpoint accepts a cron trigger plus
+      `enabled: true` in one request, and whether the ClickUp write sequence
+      for one project comfortably fits under the automation's timeout.
+   5. Record your answers in `specs/projects-roadmap.md` under "Phase 3
+      spike results". If the ClickUp MCP is not reachable from an automation
+      run, or the prompt-create endpoint does not accept the cron trigger
+      directly, stop and revise the spec before enabling the supervisor on
+      any other server.

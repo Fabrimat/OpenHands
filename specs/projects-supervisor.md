@@ -92,43 +92,43 @@ The summary prompt reads each project's status subtasks and open `supervisor-sug
 ## Specs
 
 ### PRJ-201: Supervisor settings persist on the primary server
-- [ ] Supervisor settings shall be read from and written to `misc_settings.supervisor` of the primary backend.
-- [ ] Missing or invalid stored settings shall fall back to `DEFAULT_SUPERVISOR_SETTINGS` (disabled); invalid time strings shall be rejected by the guard.
+- [x] Supervisor settings shall be read from and written to `misc_settings.supervisor` of the primary backend.
+- [x] Missing or invalid stored settings shall fall back to `DEFAULT_SUPERVISOR_SETTINGS` (disabled); invalid time strings shall be rejected by the guard.
 
 ### PRJ-202: Per-server prompt scope
-- [ ] A server's prompt shall contain exactly the projects with a location whose host matches that server, and no other project.
-- [ ] Project fields shall appear only inside the fenced JSON data block; notes shall never appear.
-- [ ] The prompt shall start with the marker line and contain the forbidden-actions list, the non-interactive git rules and the `finish` rule.
+- [x] A server's prompt shall contain exactly the projects with a location whose host matches that server, and no other project.
+- [x] Project fields shall appear only inside the fenced JSON data block; notes shall never appear.
+- [x] The prompt shall start with the marker line and contain the forbidden-actions list, the non-interactive git rules and the `finish` rule.
 
 ### PRJ-203: Deterministic prompts
-- [ ] Identical inputs shall produce an identical prompt; project order in settings shall not affect the output.
+- [x] Identical inputs shall produce an identical prompt; project order in settings shall not affect the output.
 
 ### PRJ-204: Stateless reconciliation
-- [ ] For each server: no automation named `Supervisore — <label>` and desired → create; present with a different prompt, trigger, timeout or enabled state → update; equal → noop; present but not desired (server disabled, global switch off, or no projects) → disable.
-- [ ] A same-named automation without the marker line → conflict, never overwritten.
-- [ ] The summary automation on the primary follows the same rules.
+- [x] For each server: no automation named `Supervisore — <label>` and desired → create; present with a different prompt, trigger, timeout or enabled state → update; equal → noop; present but not desired (server disabled, global switch off, or no projects) → disable.
+- [x] A same-named automation without the marker line → conflict, never overwritten.
+- [x] The summary automation on the primary follows the same rules.
 
 ### PRJ-205: Automations created per backend
-- [ ] Create shall be a single POST pinned to that backend's host and key, with trigger `{ type: "cron", schedule: "M H * * *", timezone }`, the staggered time, `timeout` = min(settings.timeout_seconds, server max), no `repos`, `enabled: true`.
-- [ ] Disabling shall set `enabled: false`, never delete.
+- [x] Create shall be a single POST pinned to that backend's host and key, with trigger `{ type: "cron", schedule: "M H * * *", timezone }`, the staggered time, `timeout` = min(settings.timeout_seconds, server max), no `repos`, `enabled: true`.
+- [x] Disabling shall set `enabled: false`, never delete.
 
 ### PRJ-206: Auto re-sync
-- [ ] Saving projects or supervisor settings while the supervisor is enabled shall trigger a sync; noop diffs shall send nothing.
+- [x] Saving projects or supervisor settings while the supervisor is enabled shall trigger a sync; noop diffs shall send nothing.
 
 ### PRJ-207: Supervisor panel
-- [ ] `/projects` shall show a collapsible Supervisore section: global switch, run time, summary time (with the too-early warning), timezone, timeout, summary list, and one row per local server with health, label, enable switch and sync state (synced / pending / offline / conflict / error with message).
-- [ ] "Sync now" shall run the sync on demand.
+- [x] `/projects` shall show a collapsible Supervisore section: global switch, run time, summary time (with the too-early warning), timezone, timeout, summary list, and one row per local server with health, label, enable switch and sync state (synced / pending / offline / conflict / error with message).
+- [x] "Sync now" shall run the sync on demand.
 
 ### PRJ-208: Failure isolation
-- [ ] A failure on one server (offline, no automation backend, validation error, conflict) shall be shown on that server's row only and shall not stop sync of other servers or fire a global toast.
-- [ ] If the primary is unreachable the section shall be read-only with the projects' primary-unreachable error.
+- [x] A failure on one server (offline, no automation backend, validation error, conflict) shall be shown on that server's row only and shall not stop sync of other servers or fire a global toast.
+- [x] If the primary is unreachable the section shall be read-only with the projects' primary-unreachable error.
 
 ### PRJ-209: ClickUp suggestion lifecycle
-- [ ] Suggestion titles shall use the fixed key `[<label>] <project>: <kind>` with `kind` from the closed set; the prompt shall instruct de-dup by exact title and closing of own suggestions whose condition no longer holds.
-- [ ] Projects without a ClickUp list shall be reported under the summary list, not skipped.
+- [x] Suggestion titles shall use the fixed key `[<label>] <project>: <kind>` with `kind` from the closed set; the prompt shall instruct de-dup by exact title and closing of own suggestions whose condition no longer holds.
+- [x] Projects without a ClickUp list shall be reported under the summary list, not skipped.
 
 ### PRJ-210: No cross-server secrets
-- [ ] No server's session key shall be written to another server, to `misc_settings`, or into any prompt. The ClickUp token shall live only in each server's MCP configuration.
+- [x] No server's session key shall be written to another server, to `misc_settings`, or into any prompt. The ClickUp token shall live only in each server's MCP configuration.
 
 ## Testing
 

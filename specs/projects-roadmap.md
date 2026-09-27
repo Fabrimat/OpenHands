@@ -33,6 +33,22 @@ An agent that checks the state of all projects on a schedule and reports.
   - **Mesh (optional):** every server holds every key; resilient if the primary is down, but compromising any server compromises all four.
 - Per-project agent/sub-agent assignment (agent profile, `enable_sub_agents`, ACP agent) so the supervisor can dispatch work, not only report.
 
+### Phase 3 spike results
+
+Answers to the five questions in the "Spike" section of
+[`projects-supervisor.md`](projects-supervisor.md), from hand-running the
+spike runbook in `docs/SELF_HOSTING.md` → "Project supervisor" on one real
+server. Unanswered until the spike is run (post-implementation user action,
+not an agent task).
+
+1. Does the run's terminal see the project path, and can `git -C <path> fetch` succeed non-interactively as that OS user? — _unanswered_
+2. Is the ClickUp MCP callable inside an automation-created conversation (does the run inherit the server's MCP config)? — _unanswered_
+3. Does a prompt automation need `finish` to reach COMPLETED, and does `finish(status: "failed")` show as failed in the UI? — _unanswered_
+4. Does one POST to the prompt-create endpoint accept `trigger: { type: "cron", … }` + `enabled: true` directly? — _unanswered_
+5. Does the ClickUp MCP sequence (find parent by name, update subtask, create/close suggestions) for one project fit well under the timeout? — _unanswered_
+
+If Q2 or Q4 comes back "no", stop and revise `projects-supervisor.md` before enabling the supervisor on all servers.
+
 ## Phase 4: Borg backups
 
 - Backup support via BorgBackup for the servers.
