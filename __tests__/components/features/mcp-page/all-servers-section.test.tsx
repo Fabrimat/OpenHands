@@ -273,6 +273,112 @@ describe("AllServersSection", () => {
     },
   );
 
+  // @spec PRJ-603 — The row's "Push…" strips the parts the form has no
+  // control for (OAuth `auth.state`, raw top-level `headers`), so their
+  // redacted values can't dead-end the submit. Only retypeable secrets remain.
+  it("row-pushes an oauth2 entry with redacted state after retyping the client secret, without sending state, and notes re-authorization", async () => {
+    setRegisteredBackends([backendA, backendB]);
+    setActiveSelection({ backendId: "a" });
+    vi.spyOn(McpFleetService, "getConfig").mockResolvedValue({
+      shared: {
+        transport: "http",
+        url: "https://example.com/mcp",
+        auth: {
+          strategy: "oauth2",
+          authentication: {
+            type: "oauth",
+            client_id: "client",
+            client_secret: REDACTED_MCP_SECRET_VALUE,
+          },
+          state: { tokens: { access_token: REDACTED_MCP_SECRET_VALUE } },
+        },
+      } as unknown as MCPServer,
+    });
+    const pushSpy = vi
+      .spyOn(McpFleetService, "push")
+      .mockResolvedValue(undefined);
+
+    renderSection();
+    fireEvent.click(await screen.findByTestId("mcp-fleet-row-push-shared"));
+    const modal = await screen.findByTestId("mcp-fleet-push-modal");
+    fireEvent.change(within(modal).getByTestId("oauth-client-secret-input"), {
+      target: { value: "new-secret" },
+    });
+    fireEvent.click(within(modal).getByTestId("submit-button"));
+    expect(
+      await screen.findByTestId("mcp-fleet-overwrite-oauth-note"),
+    ).toHaveTextContent("MCP$FLEET_OVERWRITE_OAUTH_NOTE");
+    fireEvent.click(screen.getByTestId("mcp-fleet-overwrite-confirm-button"));
+
+    await waitFor(() => expect(pushSpy).toHaveBeenCalledTimes(2));
+    const pushed = pushSpy.mock.calls[0][1];
+    expect(pushed.auth).toEqual({
+      strategy: "oauth2",
+      authentication: {
+        type: "oauth",
+        client_id: "client",
+        client_secret: "new-secret",
+      },
+    });
+  });
+
+  it("row-pushes a remote entry with redacted raw headers without sending headers", async () => {
+    setRegisteredBackends([backendA, backendB]);
+    setActiveSelection({ backendId: "a" });
+    vi.spyOn(McpFleetService, "getConfig").mockResolvedValue({
+      shared: {
+        transport: "http",
+        url: "https://example.com/mcp",
+        headers: { Authorization: REDACTED_MCP_SECRET_VALUE },
+      } as MCPServer,
+    });
+    const pushSpy = vi
+      .spyOn(McpFleetService, "push")
+      .mockResolvedValue(undefined);
+
+    renderSection();
+    fireEvent.click(await screen.findByTestId("mcp-fleet-row-push-shared"));
+    const modal = await screen.findByTestId("mcp-fleet-push-modal");
+    fireEvent.click(within(modal).getByTestId("submit-button"));
+    fireEvent.click(
+      await screen.findByTestId("mcp-fleet-overwrite-confirm-button"),
+    );
+
+    await waitFor(() => expect(pushSpy).toHaveBeenCalledTimes(2));
+    expect(pushSpy.mock.calls[0][1]).not.toHaveProperty("headers");
+    expect(
+      screen.queryByTestId("mcp-fleet-overwrite-oauth-note"),
+    ).not.toBeInTheDocument();
+  });
+
+  // @spec PRJ-601 — A slow backend neither hides the matrix nor stays
+  // unchecked in the push checklist once it loads.
+  it("renders the matrix while one backend is loading and checks that backend in an open push modal once it loads", async () => {
+    setRegisteredBackends([backendA, backendB]);
+    setActiveSelection({ backendId: "a" });
+    let resolveB: (config: MCPConfig) => void = () => {};
+    const configB = new Promise<MCPConfig>((resolve) => {
+      resolveB = resolve;
+    });
+    vi.spyOn(McpFleetService, "getConfig").mockImplementation(async (b) =>
+      b.id === "b"
+        ? configB
+        : { shared: { transport: "stdio", command: "npx" } as MCPServer },
+    );
+
+    renderSection();
+    expect(
+      await screen.findByTestId("mcp-fleet-cell-shared-b"),
+    ).toHaveTextContent("HOME$LOADING");
+    fireEvent.click(screen.getByTestId("mcp-fleet-push-new"));
+    const target = await screen.findByTestId("mcp-fleet-push-target-b");
+    expect(target).not.toBeChecked();
+
+    resolveB({});
+
+    await waitFor(() => expect(target).toBeChecked());
+  });
+
   // @spec PRJ-603 — MCPServerForm can't represent "basic" auth (its own
   // auth-mode dropdown has no such option), so submitting untouched would
   // send `auth: null` and wipe it on every backend. Disable the row's own

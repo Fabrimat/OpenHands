@@ -93,6 +93,7 @@ describe("useMcpFleet", () => {
       (col) => col.backend.id === "b",
     );
     expect(columnB?.config).toBeNull();
+    expect(result.current.statuses).toEqual(["success", "error"]);
   });
 });
 

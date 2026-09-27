@@ -53,6 +53,18 @@ export function PushToServersModal({
   const [checkedIds, setCheckedIds] = React.useState(
     () => new Set(reachableIds),
   );
+  // @spec PRJ-601 — A backend that finishes loading after the modal opened
+  // gets checked once, on first becoming reachable; one the user already
+  // unchecked stays unchecked.
+  const seenReachableIds = React.useRef(new Set(reachableIds));
+  React.useEffect(() => {
+    const fresh = reachableIds.filter(
+      (id) => !seenReachableIds.current.has(id),
+    );
+    if (fresh.length === 0) return;
+    fresh.forEach((id) => seenReachableIds.current.add(id));
+    setCheckedIds((prev) => new Set([...prev, ...fresh]));
+  }, [reachableIds]);
   const [step, setStep] = React.useState<Step>("form");
   const [secretError, setSecretError] = React.useState<string | null>(null);
   const [pendingServer, setPendingServer] =
@@ -61,6 +73,7 @@ export function PushToServersModal({
   const [overwrittenBackends, setOverwrittenBackends] = React.useState<
     Backend[]
   >([]);
+  const [overwritesOAuth, setOverwritesOAuth] = React.useState(false);
   const [results, setResults] = React.useState<PushResult[] | null>(null);
 
   const toggleBackend = (id: string, checked: boolean) => {
@@ -105,6 +118,13 @@ export function PushToServersModal({
     const overwritten = targets.filter((target) => target.previous);
     if (overwritten.length > 0) {
       setOverwrittenBackends(overwritten.map((target) => target.backend));
+      setOverwritesOAuth(
+        overwritten.some(
+          (target) =>
+            target.previous?.transport !== "stdio" &&
+            target.previous?.auth?.strategy === "oauth2",
+        ),
+      );
       setStep("confirm");
       return;
     }
@@ -279,6 +299,14 @@ export function PushToServersModal({
                 </li>
               ))}
             </ul>
+            {overwritesOAuth && (
+              <p
+                data-testid="mcp-fleet-overwrite-oauth-note"
+                className="text-sm text-tertiary-light"
+              >
+                {t(I18nKey.MCP$FLEET_OVERWRITE_OAUTH_NOTE)}
+              </p>
+            )}
             <div className="flex justify-end gap-2">
               <BrandButton
                 testId="mcp-fleet-overwrite-cancel"

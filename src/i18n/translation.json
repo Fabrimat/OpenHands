@@ -43077,6 +43077,23 @@
     "zh-CN": "将覆盖以下服务器上的现有条目：{{backends}}",
     "zh-TW": "將覆寫以下伺服器上的現有項目：{{backends}}"
   },
+  "MCP$FLEET_OVERWRITE_OAUTH_NOTE": {
+    "ar": "إدخالات OAuth المستبدلة تتطلب إعادة التفويض على هذه الخوادم.",
+    "ca": "Les entrades OAuth sobreescrites s'hauran de tornar a autoritzar en aquests servidors.",
+    "de": "Überschriebene OAuth-Einträge müssen auf diesen Servern erneut autorisiert werden.",
+    "en": "Overwritten OAuth entries will need to be re-authorized on those servers.",
+    "es": "Las entradas OAuth sobrescritas deberán volver a autorizarse en esos servidores.",
+    "fr": "Les entrées OAuth remplacées devront être autorisées à nouveau sur ces serveurs.",
+    "it": "Le voci OAuth sovrascritte dovranno essere autorizzate di nuovo su quei server.",
+    "ja": "上書きされた OAuth エントリは、それらのサーバーで再認可が必要です。",
+    "ko-KR": "덮어쓴 OAuth 항목은 해당 서버에서 다시 인증해야 합니다.",
+    "no": "Overskrevne OAuth-oppføringer må autoriseres på nytt på disse serverne.",
+    "pt": "As entradas OAuth substituídas precisarão ser autorizadas novamente nesses servidores.",
+    "tr": "Üzerine yazılan OAuth girişlerinin bu sunucularda yeniden yetkilendirilmesi gerekecek.",
+    "uk": "Перезаписані записи OAuth потрібно буде повторно авторизувати на цих серверах.",
+    "zh-CN": "被覆盖的 OAuth 条目需要在这些服务器上重新授权。",
+    "zh-TW": "被覆寫的 OAuth 項目需要在這些伺服器上重新授權。"
+  },
   "MCP$FLEET_REMOVE_CONFIRM": {
     "ar": "إزالة \"{{key}}\" من: {{backends}}",
     "ca": "Elimina \"{{key}}\" de: {{backends}}",

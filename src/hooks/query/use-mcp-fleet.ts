@@ -1,4 +1,9 @@
-import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryStatus,
+  useMutation,
+  useQueries,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { MCPServer } from "@openhands/typescript-client";
 import type { Backend } from "#/api/backend-registry/types";
 import {
@@ -22,6 +27,8 @@ import { MCP_FLEET_QUERY_KEYS, SETTINGS_QUERY_KEYS } from "./query-keys";
 export function useMcpFleet(): {
   columns: FleetColumn[];
   rows: FleetRow[];
+  /** Per-column fetch status, index-aligned with `columns`. */
+  statuses: QueryStatus[];
   isLoading: boolean;
 } {
   const { backends } = useActiveBackendContext();
@@ -34,6 +41,9 @@ export function useMcpFleet(): {
         backend.connectionRevision ?? 0,
       ),
       meta: { disableToast: true },
+      // A down backend must fail fast so its column reads "unreachable"
+      // instead of holding the matrix behind retries (use-backends-health.ts).
+      retry: false,
       queryFn: () => McpFleetService.getConfig(backend),
     })),
   });
@@ -48,6 +58,7 @@ export function useMcpFleet(): {
   return {
     columns,
     rows: buildFleetMatrix(columns),
+    statuses: queries.map((q) => q.status),
     isLoading: queries.some((q) => q.isPending),
   };
 }

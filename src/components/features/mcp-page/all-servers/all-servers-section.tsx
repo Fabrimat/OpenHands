@@ -65,6 +65,7 @@ interface FleetTableCellProps {
   backend: Backend;
   result: ExtendedMCPTestResponse | undefined;
   isTestPending: boolean;
+  isColumnLoading: boolean;
   onTest: (server: MCPServer) => void;
 }
 
@@ -77,9 +78,14 @@ function FleetTableCell({
   backend,
   result,
   isTestPending,
+  isColumnLoading,
   onTest,
 }: FleetTableCellProps) {
-  const label = t(STATE_LABEL_KEYS[cell.state]);
+  // @spec PRJ-601 — A column still fetching reads "loading", not "unreachable"
+  // (buildFleetMatrix sees only a null config either way).
+  const label = isColumnLoading
+    ? t(I18nKey.HOME$LOADING)
+    : t(STATE_LABEL_KEYS[cell.state]);
   // Narrows via the shape difference (only this branch carries `server`/
   // `diff`), matching the FleetCell narrowing convention from mcp-fleet.ts.
   if (!("server" in cell)) {
@@ -136,7 +142,7 @@ function FleetTableCell({
 // @spec PRJ-601, PRJ-602 — All-servers MCP drift matrix
 export function AllServersSection() {
   const { t } = useTranslation("openhands");
-  const { columns, rows, isLoading } = useMcpFleet();
+  const { columns, rows, statuses } = useMcpFleet();
   const testMutation = useTestMcpOnBackend();
 
   const [pushRequest, setPushRequest] = React.useState<{
@@ -157,8 +163,21 @@ export function AllServersSection() {
   // blanking would silently submit an empty secret / drop `auth` entirely
   // (buildReplacementPatch then nulls it out) on every backend that gets
   // overwritten.
+  //
+  // Two parts are stripped because the form has no control to retype them,
+  // so a redacted value there could never clear `hasRedactedSecret`: raw
+  // top-level `headers` (carried read-only by the form) and server-held
+  // OAuth `auth.state` (tokens, re-emitted verbatim). buildReplacementPatch
+  // nulls both on the targets, same as a top-level push for this name — the
+  // OAuth entry then needs re-authorizing there (see the overwrite note).
   const handlePushRow = (row: FleetRow) => {
-    const prefill = flattenMcpConfig({ [row.key]: row.reference })[0];
+    const { headers: _headers, ...prefill } = flattenMcpConfig({
+      [row.key]: row.reference,
+    })[0];
+    if (prefill.auth?.strategy === "oauth2") {
+      const { state: _state, ...auth } = prefill.auth;
+      prefill.auth = auth;
+    }
     setPushRequest({ initialServer: prefill });
   };
 
@@ -184,7 +203,9 @@ export function AllServersSection() {
         </BrandButton>
       </div>
 
-      {!isLoading && rows.length > 0 && (
+      {/* @spec PRJ-601 — Render as soon as any backend answered, so one
+          hanging backend can't hide the rest of the matrix. */}
+      {columns.some((column) => column.config !== null) && rows.length > 0 && (
         <div className="overflow-x-auto">
           <table data-testid="mcp-fleet-table" className="w-full text-sm">
             <thead>
@@ -224,6 +245,7 @@ export function AllServersSection() {
                           backend={backend}
                           result={testResults[resultKey]}
                           isTestPending={testMutation.isPending}
+                          isColumnLoading={statuses[i] === "pending"}
                           onTest={(server) =>
                             testMutation.mutate(
                               { backend, key: row.key, stored: server },
